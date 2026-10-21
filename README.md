@@ -33,6 +33,45 @@
 - `os_*.s` の中では .include を使わない。
 - 選択課題（Step 10）は各自 `user_<名前>.s`（MAIN を定義）と `main_<名前>.s`（`main_echo.s` の `user_echo.s` を差し替えたもの）を作る。
 
+## 環境の構築（最初の 1 回だけ）
+
+git を初めて使う人も，上から順にそのまま打てば準備が終わる。`#` から右はコメントなので打たなくてよい。
+
+### 事前にやること（ブラウザで）
+
+1. GitHub のアカウントを作り，ユーザー名を班のリポジトリ管理者に伝える。
+2. 招待メール（または https://github.com/notifications ）の **Accept invitation** を押す。招待を受けないと clone できない。
+3. パスワードの代わりに使う **トークン** を作る。
+   GitHub 右上のアイコン → Settings → Developer settings → Personal access tokens → **Tokens (classic)** → Generate new token (classic)。
+   Note に「softexp1」，Expiration は実験が終わる日より後，チェックは **repo** だけ付けて Generate。
+   表示された `ghp_...` の文字列をメモする（画面を閉じると二度と見られない。人に見せない）。
+
+### 端末でやること（ここをまとめて打つ）
+
+```sh
+git --version                                   # 1. git が入っているか確認。バージョンが出れば OK
+
+git config --global user.name  "Taro Kyushu"    # 2. 自分の名前（ローマ字）。コミットに記録される
+git config --global user.email "you@example.com" #    GitHub に登録したメールアドレス
+git config --global credential.helper "cache --timeout=36000"  # 3. トークンを 10 時間だけ覚えさせる（ディスクには保存しない）
+
+cd ~                                            # 4. ホームに移動
+git clone https://github.com/KamiiAoto/softexp1-os.git   # 5. リポジトリを手元にコピー
+#    Username: GitHub のユーザー名
+#    Password: さっき作ったトークン（ghp_...）を貼り付け。何も表示されないが入力されている
+cd softexp1-os                                  # 6. リポジトリの中に入る
+ls                                              # 7. README.md や os_*.s が見えれば成功
+git status                                      # 8. "On branch main" "up to date" と出れば OK
+
+m68k-as -t 400 test_step1.s                     # 9. アセンブルできるか確認（test_step1.abs ができる）
+```
+
+- 手順 2・3 は PC ごとに 1 回だけ。手順 5 も 1 回だけで，次からは `cd ~/softexp1-os` → `git pull` から始める（下の「git の使い方」）。
+- `git --version` で `command not found` と出たら git が入っていない。実験室の PC なら TA に聞く。自分の Mac なら `xcode-select --install`，Windows なら Git for Windows を入れる。
+- clone で `Repository not found` と出たら，招待を Accept していないか，ユーザー名を打ち間違えている。
+- `Authentication failed` と出たら，Password にトークンではなく GitHub のパスワードを入れている（GitHub はパスワードを受け付けない）。
+- 実験室の PC は共用なので，トークンをファイルに書いて残さない。手順 3 の設定ならログアウトや時間切れで忘れる（次回は clone や push のときにもう一度聞かれる）。
+
 ## ビルドと実行（付録 A）
 
 リポジトリの直下で実行する。
