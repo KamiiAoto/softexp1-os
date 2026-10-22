@@ -64,6 +64,13 @@ git status                                      # 8. "On branch main" "up to dat
 m68k-as -t 400 test_step1.s                     # 9. アセンブルできるか確認（test_step1.abs ができる）
 ```
 
+- **手順 2（名前とメール）は必須。** git はコミットのたびに「誰が変更したか」としてこの 2 つを記録する。設定しないと `Please tell me who you are` と出てコミットできない。
+  - メールを GitHub に登録したものにすると，コミットが自分のアカウントにひも付く（誰が書き，誰がレビューしたかが履歴で追える）。
+  - このリポジトリは公開なので，名前とメールも公開される。大学のメールを出したくなければ，GitHub の Settings → Emails に出る `数字+ユーザー名@users.noreply.github.com` を使う。
+  - `--global` は「この PC のこのアカウント全体」の設定。実験室の PC を複数人が同じアカウントで使うなら，`--global` を付けずに `cd softexp1-os` の後で `git config user.name ...` と打つ（このリポジトリだけの設定になり，他人の名前でコミットしてしまうのを防げる）。
+- **手順 3（トークンを覚えさせる）は任意。** ないと push のたびにユーザー名とトークンを聞かれるだけで，動きはする。
+  - `cache` はメモリに 10 時間（36000 秒）だけ覚え，ファイルには残さない。ログアウトか時間切れで消えるので共用 PC でも安全。
+  - `store` にすると二度と聞かれなくなるが，トークンがファイルにそのまま残るので共用 PC では使わない。
 - 手順 2・3 は PC ごとに 1 回だけ。手順 5 も 1 回だけで，次からは `cd ~/softexp1-os` → `git pull` から始める（下の「git の使い方」）。
 - `git --version` で `command not found` と出たら git が入っていない。実験室の PC なら TA に聞く。自分の Mac なら `xcode-select --install`，Windows なら Git for Windows を入れる。
 - 初めて `git push` したときにログインを求められる。
