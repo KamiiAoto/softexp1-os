@@ -7,11 +7,11 @@
 
 | 担当 | 名前 | 主なファイル | レビュー担当 |
 |---|---|---|---|
-| 初期化 | | `os_init.s`, `os_interface.s`, `main_echo.s` | タイマ |
-| 初期化 | | `os_init.s`, `os_interface.s` | タイマ |
-| タイマ | | `os_timer.s` | 初期化 |
-| 受信 | | `os_queue.s`, `os_uart.s`（INTERGET, GETSTRING） | 送信 |
-| 送信 | | `os_queue.s`, `os_uart.s`（INTERPUT, PUTSTRING） | 受信 |
+| 初期化 | 神井 | `os_init.s`, `os_interface.s`, `main_echo.s` | 松岡（タイマ） |
+| 初期化 | 副田 | `os_init.s`, `os_interface.s` | 松岡（タイマ） |
+| タイマ | 松岡 | `os_timer.s` | 神井・副田（初期化） |
+| 受信 | 安森 | `os_queue.s`, `os_uart.s`（INTERGET, GETSTRING） | 田邉（送信） |
+| 送信 | 田邉 | `os_queue.s`, `os_uart.s`（INTERPUT, PUTSTRING） | 安森（受信） |
 
 ## ファイル構成
 
