@@ -42,3 +42,5 @@ CALL_RP:
 .even
 task_p:
 	.ds.l	1               | タイマ割り込みで呼ぶルーチンの先頭アドレス
+
+/*test*/
