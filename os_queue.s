@@ -59,7 +59,6 @@ INQ_CHECK_FULL:	 /*(3) s== 256 でqueue full*/
 	beq     INQ_FULL
 	movea.l IN(%a0),%a1 /*(4)m[in] = data*/
 	move.b %d1, (a1)
-
 	cmpa.l BOTTOM(%a0), %a1
 
 	
@@ -75,7 +74,29 @@ INQ_CHECK_FULL:	 /*(3) s== 256 でqueue full*/
 **   【処理内容】p.26 の (1)〜(7)．
 ***************************************************************
 OUTQ:
-	| TODO
+	OUTQ:
+	movem.l %SR, -(%SP)
+	ori.w #0x2700, %SR
+	move.b	s, %a4
+	cmp.b	#0x00, %a4
+	bne	QUTQ_DO
+	move.b	#0x00, %D0
+	jsr	QUTQ_BACK
+QUTQ_DO:	
+	move.b	out, %a0
+	move.b	(%a0), %d1
+	move.b	out, %a5
+	move.b	bottom, %a6
+	cmp.b	%a5, %a6
+	bne	QUTQ_PLS
+	move.b	top, %a7
+	move.b	%a7, out
+QUTQ_PLS:
+	addq.b #1, out
+	subq.b #1, s
+	move.l #1, %d0
+QUTQ_BACK:
+	movem.l (%SP)+, %SR
 	moveq.l	#0,%D0                  | 仮実装: 常に失敗を返す
 	rts
 
