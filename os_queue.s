@@ -18,12 +18,27 @@
 ***************************************************************
 QUEUE_INIT:
  lea.l BF_START, %a2
-	move.l %a2, top
-	move.l %a2, bottom
-	move.l %a2, out
-	move.l %a2, in
-	move.l #0, s
-	
+	movem.l %a2-%a3, -(%sp)     | 使用するレジスタの退避
+
+    * キュー0 (受信用) の初期化
+    lea.l   BF0_START, %a2
+    lea.l   BF0_END, %a3
+    move.l  %a2, top0
+    move.l  %a3, bottom0        | bottom には末尾アドレスを入れる
+    move.l  %a2, out0
+    move.l  %a2, in0
+    move.l  #0, s0
+
+    * キュー1 (送信用) の初期化
+    lea.l   BF1_START, %a2
+    lea.l   BF1_END, %a3
+    move.l  %a2, top1
+    move.l  %a3, bottom1
+    move.l  %a2, out1
+    move.l  %a2, in1
+    move.l  #0, s1
+
+	movem.l (%sp)+, %a2-%a3     | レジスタの復帰
 	rts
 
 ***************************************************************
@@ -33,7 +48,22 @@ QUEUE_INIT:
 **   【処理内容】p.25 の (1)〜(7)．走行レベルの退避・割り込み禁止を忘れずに．
 ***************************************************************
 INQ:
-	| TODO
+	move.w  %sr, -(%sp)        /*(1)走行レベル(%SR)をa3に退避*/
+	move.w  #0x2700, %sr    /*(2)割り込み禁止 */
+	lea.l Q0_INFO,%a0
+	cmpi.l #0,d0
+	beq INQ_CHECK_FULL
+	la.l Q1_INFO,%a0
+INQ_CHECK_FULL:	 /*(3) s== 256 でqueue full*/
+	cmpi.l  #256, S(%a0)
+	beq     INQ_FULL
+	movea.l IN(%a0),%a1 /*(4)m[in] = data*/
+	move.b %d1, (a1)
+
+	cmpa.l BOTTOM(%a0), %a1
+
+	
+	
 	moveq.l	#0,%D0                  | 仮実装: 常に失敗を返す
 	rts
 
@@ -55,6 +85,28 @@ OUTQ:
 .section .bss
 .even
 
-	| TODO: データ領域 256 バイト × 2 と，変数 top/bottom/out/in/s
-	BF_START .ds.b 255
-	BF_END .ds.b 1
+	/*TODO: データ領域 256 バイト × 2 と，変数 top/bottom/out/in/s*/
+* キュー0 (受信用: 256バイト)
+BF0_START:  .ds.b 255
+BF0_END:    .ds.b 1
+
+* キュー1 (送信用: 256バイト)
+BF1_START:  .ds.b 255
+BF1_END:    .ds.b 1
+
+.even
+* キュー0 の制御変数 (先頭から +0, +4, +8, +12, +16 バイト)
+Q0_INFO:
+top0:       .ds.l 1
+bottom0:    .ds.l 1
+out0:       .ds.l 1
+in0:        .ds.l 1
+s0:         .ds.l 1
+
+* キュー1 の制御変数 (Q0_INFO の直後 = +20バイト目から配置)
+Q1_INFO:
+top1:       .ds.l 1
+bottom1:    .ds.l 1
+out1:       .ds.l 1
+in1:        .ds.l 1
+s1:         .ds.l 1
