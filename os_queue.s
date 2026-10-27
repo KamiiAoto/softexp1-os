@@ -95,59 +95,59 @@ OUTQ:
 	ori.w #0x2700, %SR
 
 	cmpi.l #0, %d0
-    beq	QUTQ_Q0
+	beq	OUTQ_Q0
 
 *キュー1
-QUTQ_Q1:
+OUTQ_Q1:
 	cmpi.l #0, s1
-	beq	QUTQ_EMPTY_OUT1
+	beq	OUTQ_EMPTY_OUT1
 	
 	move.l	out1, %a0
 	move.l	(%a0), %d1
 
 	cmp.l	bottom1, %a0
-	bne	QUTQ_PLS_OUT1
+	bne	OUTQ_PLS_OUT1
 	move.l	top1, %a0
-	bra	QUTQ_UPDATTE_OUT1
-QUTQ_PLS_OUT1:
+	bra	OUTQ_UPDATTE_OUT1
+OUTQ_PLS_OUT1:
 	addq.l	#1, %a0
-QUTQ_UPDATTE_OUT1:
+OUTQ_UPDATTE_OUT1:
 	move.l %a0, out1
 
 	subq.l #1, s1
 	move.l #1, %d0
 	
-	bra QUTQ_EXIT
-QUTQ_EMPTY_OUT1:
+	bra OUTQ_EXIT
+OUTQ_EMPTY_OUT1:
 	move.l #0, %d0
-	bra QUTQ_EXIT
+	bra OUTQ_EXIT
 
 *キュー0
-QUTQ_Q0:
+OUTQ_Q0:
 	cmpi.l #0, s0
-	beq	QUTQ_EMPTY_OUT0
+	beq	OUTQ_EMPTY_OUT0
 	
 	move.l	out0, %a0
 	move.l	(%a0), %d1
 
 	cmp.l	bottom0, %a0
-	bne	QUTQ_PLS_OUT0
+	bne	OUTQ_PLS_OUT0
 	move.l	top0, %a0
-	bra	QUTQ_UPDATTE_OUT0
-QUTQ_PLS_OUT0:
+	bra	OUTQ_UPDATTE_OUT0
+OUTQ_PLS_OUT0:
 	addq.l	#1, %a0
-QUTQ_UPDATTE_OUT0:
+OUTQ_UPDATTE_OUT0:
 	move.l %a0, out0
 
 	subq.l #1, s0
 	move.l #1, %d0
 	
-	bra QUTQ_EXIT
-QUTQ_EMPTY_OUT0:
+	bra OUTQ_EXIT
+OUTQ_EMPTY_OUT0:
 	move.l #0, %d0
-	bra QUTQ_EXIT
+	bra OUTQ_EXIT
 
-QUTQ_EXIT:
+OUTQ_EXIT:
 	move.w (%SP)+, %SR
 	movem.l (%sp)+, %a0-%a1
 	rts
