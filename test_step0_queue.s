@@ -14,10 +14,10 @@
 
 * もし os_defs.s に以下のオフセット定義が無い場合はコメントを外してください
 .equ	TOP,	0
- .equ	BOTTOM,	4
- .equ	OUT,	8
- .equ	IN,	12
- .equ	S,	16
+.equ	BOTTOM,	4
+.equ	OUT,	8
+.equ	IN,	12
+.equ	S,	16
 
 .section .bss
 .even
