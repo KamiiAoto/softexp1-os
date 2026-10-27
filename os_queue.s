@@ -17,7 +17,6 @@
 	**   TODO: top/out/in ← データ領域の先頭，bottom ← 末尾，s ← 
 ***************************************************************
 QUEUE_INIT:
- lea.l BF_START, %a2
 	movem.l %a2-%a3, -(%sp)     | 使用するレジスタの退避
 
     * キュー0 (受信用) の初期化
@@ -48,22 +47,39 @@ QUEUE_INIT:
 **   【処理内容】p.25 の (1)〜(7)．走行レベルの退避・割り込み禁止を忘れずに．
 ***************************************************************
 INQ:
+	movem.l %a0-%a1,-(%sp)
 	move.w  %sr, -(%sp)        /*(1)走行レベル(%SR)をa3に退避*/
 	move.w  #0x2700, %sr    /*(2)割り込み禁止 */
 	lea.l Q0_INFO,%a0
-	cmpi.l #0,d0
+	cmpi.l #0,%d0
 	beq INQ_CHECK_FULL
-	la.l Q1_INFO,%a0
+	lea.l Q1_INFO,%a0
 INQ_CHECK_FULL:	 /*(3) s== 256 でqueue full*/
 	cmpi.l  #256, S(%a0)
 	beq     INQ_FULL
 	movea.l IN(%a0),%a1 /*(4)m[in] = data*/
-	move.b %d1, (a1)
-	cmpa.l BOTTOM(%a0), %a1
+	move.b %d1, (%a1)
+	cmpa.l BOTTOM(%a0), %a1 /*(5)*/
+	beq INQ_WRAP
+	adda.l #1,%a1
+	bra INQ_UPDATE
 
-	
-	
-	moveq.l	#0,%D0                  | 仮実装: 常に失敗を返す
+INQ_WRAP:
+	movea.l TOP(%a0), %a1
+
+INQ_UPDATE:	
+	move.l %a1,IN(%a0)  /*更新したin保存*/
+
+	addi.l #1, S(%a0)  /*(6)*/
+	moveq.l #1,%d0
+	bra INQ_BACK
+
+INQ_FULL:
+	moveq #0,%d0
+
+INQ_BACK:
+	move.w (%sp)+,%sr
+	movem.l (%sp)+, %a0-%a1
 	rts
 
 ***************************************************************
