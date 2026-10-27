@@ -103,7 +103,7 @@ OUTQ_Q1:
 	beq	OUTQ_EMPTY_OUT1
 	
 	move.l	out1, %a0
-	move.l	(%a0), %d1
+	move.b	(%a0), %d1
 
 	cmp.l	bottom1, %a0
 	bne	OUTQ_PLS_OUT1
@@ -128,7 +128,7 @@ OUTQ_Q0:
 	beq	OUTQ_EMPTY_OUT0
 	
 	move.l	out0, %a0
-	move.l	(%a0), %d1
+	move.b	(%a0), %d1
 
 	cmp.l	bottom0, %a0
 	bne	OUTQ_PLS_OUT0
