@@ -78,8 +78,8 @@ INQ_FULL:
 	moveq #0,%d0
 
 INQ_BACK:
-	move.w (%sp)+,%sr
 	movem.l (%sp)+, %a0-%a1
+	move.w (%sp)+,%sr
 	rts
 
 ***************************************************************
