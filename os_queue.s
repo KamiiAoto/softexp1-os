@@ -148,8 +148,8 @@ OUTQ_EMPTY_OUT0:
 	bra OUTQ_EXIT
 
 OUTQ_EXIT:
-	move.w (%SP)+, %SR
 	movem.l (%sp)+, %a0-%a1
+	move.w (%SP)+, %SR
 	rts
 ***************************************************************
 ** キューの領域 (.bss に .ds で確保する: 3.4.1 節)
