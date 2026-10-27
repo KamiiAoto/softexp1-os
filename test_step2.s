@@ -1,26 +1,67 @@
 ***************************************************************
-** test_step1.s : Step 1 の動作確認 (テキスト 3.5 節 p.30)
-**   初期化ルーチンの後，'a' を送信レジスタ UTX1 に書き込む．
-**   CPU ボードで 'a' が 1 文字表示されれば OK．
-**   アセンブル: m68k-as -t 400 test_step1.s
-**
-**   Step 2, 3, 4, ... のテストも，このファイルをコピーして
-**   test_stepN.s を作り，MAIN の中身を差し替える．
+** test_step2.s : Step 2 UART1 receive-interrupt echo test
 ***************************************************************
-	.include "os_defs.s"
-	.include "os_init.s"
-	.include "os_interface.s"
-	.include "os_queue.s"
-	.include "os_uart.s"
-	.include "os_timer.s"
+
+.include "os_defs.s"
 
 ***************************************************************
-** 現段階での初期化ルーチンの正常動作を確認するため，最後に 'a' を
-** 送信レジスタ UTX1 に書き込む．'a' が出力されれば，OK.
+** System stack
+***************************************************************
+.section .bss
+.even
+SYS_STK:
+    .ds.b 0x4000
+.even
+SYS_STK_TOP:
+
+***************************************************************
+** Initialization
 ***************************************************************
 .section .text
 .even
+boot:
+    move.w #0x2700, %SR
+    lea.l SYS_STK_TOP, %SP
+
+    | 1. Set UART1 interrupt vector
+    move.l #RECEIVE_TEST, 0x110
+
+    | 2. Initialize interrupt controller
+    move.b #0x40, IVR
+    move.l #0x00ffffff, IMR
+
+    | 3. Initialize UART1
+    move.w #0x0000, USTCNT1
+    move.w #0xe108, USTCNT1
+    move.w #0x0038, UBAUD1
+
+    | 4. Initialize timer1 (disabled)
+    move.w #0x0004, TCTL1
+
+    | 5. Permit UART1 interrupts
+    move.l #0x00ff3ffb, IMR
+
+    | 6. CPU interrupt mask level = 0
+    move.w #0x2000, %SR
+
+    bra MAIN
+
+***************************************************************
+** Main loop
+***************************************************************
 MAIN:
-	move.w	#0x0800+'a',UTX1        | 0x0800 を足す理由については，付録 B.3.3.4
-LOOP:
-	bra	LOOP
+    bra MAIN
+
+***************************************************************
+** Receive interrupt handler
+***************************************************************
+RECEIVE_TEST:
+    move.l %D0, -(%SP)
+
+    move.w URX1, %D0
+    andi.w #0x00ff, %D0
+    ori.w #0x0800, %D0
+    move.w %D0, UTX1
+
+    move.l (%SP)+, %D0
+    rte
