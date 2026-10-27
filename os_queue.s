@@ -90,24 +90,24 @@ INQ_BACK:
 **   【処理内容】p.26 の (1)〜(7)．
 ***************************************************************
 OUTQ:
-	OUTQ:
 	move.w %SR, -(%SP)
+	movem.l %a0-%a1,-(%sp)
 	ori.w #0x2700, %SR
 
 	cmpi.l #0, %d0
-    beq	OUTQ_Q0
+    beq	QUTQ_Q0
 
 *キュー1
 QUTQ_Q1:
 	cmpi.l #0, s1
 	beq	QUTQ_EMPTY_OUT1
 	
-	move.b	out1, %a0
-	move.b	(%a0), %d1
+	move.l	out1, %a0
+	move.l	(%a0), %d1
 
-	cmp.b	bottom1, %a0
+	cmp.l	bottom1, %a0
 	bne	QUTQ_PLS_OUT1
-	move.b	top1, %a0
+	move.l	top1, %a0
 	bra	QUTQ_UPDATTE_OUT1
 QUTQ_PLS_OUT1:
 	addq.l	#1, %a0
@@ -127,12 +127,12 @@ QUTQ_Q0:
 	cmpi.l #0, s0
 	beq	QUTQ_EMPTY_OUT0
 	
-	move.b	out0, %a0
-	move.b	(%a0), %d1
+	move.l	out0, %a0
+	move.l	(%a0), %d1
 
-	cmp.b	bottom0, %a0
+	cmp.l	bottom0, %a0
 	bne	QUTQ_PLS_OUT0
-	move.b	top0, %a0
+	move.l	top0, %a0
 	bra	QUTQ_UPDATTE_OUT0
 QUTQ_PLS_OUT0:
 	addq.l	#1, %a0
@@ -149,7 +149,8 @@ QUTQ_EMPTY_OUT0:
 
 QUTQ_EXIT:
 	move.w (%SP)+, %SR
-
+	movem.l (%sp)+, %a0-%a1
+	rts
 ***************************************************************
 ** キューの領域 (.bss に .ds で確保する: 3.4.1 節)
 ***************************************************************
