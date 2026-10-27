@@ -75,30 +75,64 @@ INQ_CHECK_FULL:	 /*(3) s== 256 でqueue full*/
 ***************************************************************
 OUTQ:
 	OUTQ:
-	movem.l %SR, -(%SP)
+	move.w %SR, -(%SP)
 	ori.w #0x2700, %SR
-	move.b	s, %a4
-	cmp.b	#0x00, %a4
-	bne	QUTQ_DO
-	move.b	#0x00, %D0
-	jsr	QUTQ_BACK
-QUTQ_DO:	
-	move.b	out, %a0
+
+	cmpi.l #0, %d0
+    beq	OUTQ_Q0
+
+*キュー1
+QUTQ_Q1:
+	cmpi.l #0, s1
+	beq	QUTQ_EMPTY_OUT1
+	
+	move.b	out1, %a0
 	move.b	(%a0), %d1
-	move.b	out, %a5
-	move.b	bottom, %a6
-	cmp.b	%a5, %a6
-	bne	QUTQ_PLS
-	move.b	top, %a7
-	move.b	%a7, out
-QUTQ_PLS:
-	addq.b #1, out
-	subq.b #1, s
+
+	cmp.b	bottom1, %a0
+	bne	QUTQ_PLS_OUT1
+	move.b	top1, %a0
+	bra	QUTQ_UPDATTE_OUT1
+QUTQ_PLS_OUT1:
+	addq.l	#1, %a0
+QUTQ_UPDATTE_OUT1:
+	move.l %a0, out1
+
+	subq.l #1, s1
 	move.l #1, %d0
-QUTQ_BACK:
-	movem.l (%SP)+, %SR
-	moveq.l	#0,%D0                  | 仮実装: 常に失敗を返す
-	rts
+	
+	bra QUTQ_EXIT
+QUTQ_EMPTY_OUT1:
+	move.l #0, %d0
+	bra QUTQ_EXIT
+
+*キュー0
+QUTQ_Q0:
+	cmpi.l #0, s0
+	beq	QUTQ_EMPTY_OUT0
+	
+	move.b	out0, %a0
+	move.b	(%a0), %d1
+
+	cmp.b	bottom0, %a0
+	bne	QUTQ_PLS_OUT0
+	move.b	top0, %a0
+	bra	QUTQ_UPDATTE_OUT0
+QUTQ_PLS_OUT0:
+	addq.l	#1, %a0
+QUTQ_UPDATTE_OUT0:
+	move.l %a0, out0
+
+	subq.l #1, s0
+	move.l #1, %d0
+	
+	bra QUTQ_EXIT
+QUTQ_EMPTY_OUT0:
+	move.l #0, %d0
+	bra QUTQ_EXIT
+
+QUTQ_EXIT:
+	move.w (%SP)+, %SR
 
 ***************************************************************
 ** キューの領域 (.bss に .ds で確保する: 3.4.1 節)
