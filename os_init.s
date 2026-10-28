@@ -54,7 +54,7 @@ boot:
 	move.w	#0x0000, USTCNT1        | リセット
 	move.w	#0xe100, USTCNT1        | 送受信可能, パリティなし, 1 stop, 8 bit,
 	                                | 送受割り込み禁止
-	move.w	#0x0126, UBAUD1         | baud rate = 38400 bps
+	move.w	#0x0038, UBAUD1         | baud rate =  230400 bps
 
 	****************
 	** タイマ関係の初期化 (割り込みレベルは 6 に固定されている)
