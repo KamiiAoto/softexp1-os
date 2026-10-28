@@ -51,7 +51,14 @@ NOT_SEND:
 **   レベル 6 (タイマ 1) のベクタに登録する．
 ***************************************************************
 TIMER1_INTERRUPT:
-	| TODO
+	movem.l	%d0-%d7/%a0-%a6,-(%sp)
+	move.w	TSTAT1, %d0
+	btst	#0, %d0
+	beq		TIMER1_EXIT
+	move.w	#0, TSTAT1
+	jsr	CALL_RP
+TIMER1_EXIT:
+	movem.l	(%sp)+,%d0-%d7/%a0-%a6
 	rte
 
 ***************************************************************
