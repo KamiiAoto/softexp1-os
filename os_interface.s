@@ -51,14 +51,14 @@ NOT_SEND:
 **   レベル 6 (タイマ 1) のベクタに登録する．
 ***************************************************************
 TIMER1_INTERRUPT:
-	movem.l	%d0-%d7/%a0-%a6,-(%sp)
-	move.w	TSTAT1, %d0
-	btst	#0, %d0
-	beq		TIMER1_EXIT
-	move.w	#0, TSTAT1
-	jsr	CALL_RP
+	movem.l	%d0-%d7/%a0-%a6,-(%sp)  | (1) レジスタ退避 (CALL_RP 先で何が壊されるか分からないので全部)
+	move.w	TSTAT1, %d0             | (2) TSTAT1 をワードで読む (0 クリア前の読み出しも兼ねる)
+	btst	#0, %d0                 |     bit0 = コンペアイベント発生
+	beq		TIMER1_EXIT             |     0 ならタイマ割り込みではないので何もしない
+	move.w	#0, TSTAT1              |     TSTAT1 を 0 クリア
+	jsr	CALL_RP                 	|     task_p の指すルーチンを呼ぶ
 TIMER1_EXIT:
-	movem.l	(%sp)+,%d0-%d7/%a0-%a6
+	movem.l	(%sp)+,%d0-%d7/%a0-%a6  | (3) レジスタ復帰
 	rte
 
 ***************************************************************
@@ -71,8 +71,31 @@ TIMER1_EXIT:
 **           番号 → ルーチンへの変換は拡張しやすい形を工夫する．
 ***************************************************************
 SYSCALL_IF:
-	| TODO
+	movem.l	%a0,-(%sp)              | 作業用の %A0 だけ退避 (%D0 は戻り値，%D1〜 は引数なので触らない)
+	cmpi.l	#1, %d0                 | 番号 < 1 なら範囲外として終了
+	bcs		SYSCALL_IF_EXIT         |     (符号なし比較なので負の値も弾ける)
+	cmp.l	#SYSCALL_NUM_SET_TIMER, %d0 | 番号 > 最大の番号なら範囲外として終了
+	bhi		SYSCALL_IF_EXIT
+	lea.l	SYSCALL_TABLE, %a0      | %A0 = テーブルの先頭
+	lsl.l 	#2, %d0                 | 番号 × 4 = テーブル内のオフセット (1 要素 4 バイト)
+	movea.l	(%a0, %d0.l), %a0       | %A0 = 呼び出すルーチンの先頭アドレス
+	jsr		(%a0)                   | 各ルーチンへ (戻り値は %D0 に入る)
+SYSCALL_IF_EXIT:
+	movem.l	(%sp)+,%a0              | %A0 を復帰 (%D0 は復帰しない)
 	rte
+
+***************************************************************
+** SYSCALL_TABLE : システムコール番号 → ルーチンの先頭アドレスの対応表
+**   番号 n のルーチンは先頭から n*4 バイト目．
+**   システムコールを増やすときは末尾に 1 行足し，SYSCALL_IF の上限も変える．
+***************************************************************
+SYSCALL_TABLE:
+	.dc.l	0				| 0: 未使用
+	.dc.l	GETSTRING		| 1: SYSCALL_NUM_GETSTRING
+	.dc.l	PUTSTRING		| 2: SYSCALL_NUM_PUTSTRING 
+	.dc.l	RESET_TIMER		| 3: SYSCALL_NUM_RESET_TIMER 
+	.dc.l	SET_TIMER		| 4: SYSCALL_NUM_SET_TIMER
+
 
 ***************************************************************
 ** NONE : 何もしない例外処理 (付録 A.7.6)
