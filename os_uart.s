@@ -46,7 +46,7 @@ INTERGET:
     cmpi.l  #0, %d1
     bne     INTERGET_EXIT
 
-    * (2) INQ(0, data) により，受信キュー(0番)に data を格納する
+   /*(2) INQ(0, data) により，受信キュー(0番)に data を格納する*/
     moveq.l #0, %d0                     /*キュー番号 no = 0 → %D0.L*/
     move.b  %d2, %d1                    /*受信データ data → %D1.B (レジスタのずれ調整)*/
     jsr     INQ                         /*INQ の復帰値は無視してよい*/
@@ -86,10 +86,10 @@ GETSTRING_LOOP:
     beq     GETSTRING_DONE
 
     /*(6) アドレス i で始まる領域に data をコピー ＆ (7) sz++, i++*/
-    move.b  %d1, (%a0)+                 /:m[i] = data, i++*/
+    move.b  %d1, (%a0)+                 /*:m[i] = data, i++*/
     addq.l  #1, %d4                     /*sz++*/
 
-    */ (8) (3) へ戻る*/
+    /*(8) (3) へ戻る*/
     bra     GETSTRING_LOOP
 
 GETSTRING_DONE:
