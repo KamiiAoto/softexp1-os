@@ -51,8 +51,48 @@ rts
 **   【処理内容】p.35 の (1)〜(10)．最後に送信割り込みを許可 (USTCNT1)．
 ***************************************************************
 PUTSTRING:
-	| TODO
-	moveq.l	#0,%D0                  | 仮実装: 0 バイト
+	move.w %SR, -(%SP)
+    movem.l %d2-%d5/%a0-%a1, -(%sp)
+
+    cmpi.l #0, %d1
+    bne PUTSTRING_END
+
+    move.l #0, %d4 /* szをd4 */
+    movea.l %d2, %a0 /* iをa0 */
+    move.l %d3, %d5 /* d5にサイズを保持 */
+
+    cmpi.l #0, %d5 /* sizeが0かどうか */
+    beq PUTSTRING_FINISH
+
+PUTSTRING_CHECK:    
+    cmp.l %d5, %d4 /* szとsize比較 */
+    beq PUTSTRING_ENABLE
+
+    move.l #1, %d0 /* キュー番号 */
+    move.b (%a0), %d1 /* 格納データ */
+    jsr INQ
+
+    cmpi.l #0, %d0
+    beq PUTSTRING_ENABLE
+
+    addq.l #1, %d4
+    addq.l #1, %a0
+
+    bra PUTSTRING_CHECK
+
+PUTSTRING_ENABLE:
+    ori.w #0x0001, 0xFFF900 /* USTCNT1のbitを1に */
+
+PUTSTRING_FINISH:
+    move.l %d4, %d0
+    bra PUTSTRING_BACK
+
+PUTSTRING_END:
+    move.l #0, %d0
+
+PUTSTRING_BACK:
+    movem.l (%sp)+, %d2-%d5/%a0-%a1
+    move.w (%SP)+, %SR 
 	rts
 
 ***************************************************************
