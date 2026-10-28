@@ -62,3 +62,12 @@
 ***************
 	.equ QNO_RECV,  0
 	.equ QNO_SEND,  1
+
+***************
+** キューの制御変数のオフセット (表 3.2, os_queue.s の Q0_INFO / Q1_INFO からの位置)
+***************
+	.equ TOP,     0
+	.equ BOTTOM,  4
+	.equ OUT,     8
+	.equ IN,      12
+	.equ S,       16
