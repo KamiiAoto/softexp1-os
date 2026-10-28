@@ -42,8 +42,18 @@ PUTSTRING:
 **   【注意】INQ を呼ぶときは ch=%D0.L, data=%D1.B とレジスタがずれる．
 ***************************************************************
 INTERGET:
-	| TODO
-	rts
+    movem.l %d0-%d1, -(%sp)             /*作業用レジスタの退避(1) ch ≠ 0 ならば何もせず終了 (終了処理へジャンプ)*/
+    cmpi.l  #0, %d1
+    bne     INTERGET_EXIT
+
+    * (2) INQ(0, data) により，受信キュー(0番)に data を格納する
+    moveq.l #0, %d0                     | キュー番号 no = 0 → %D0.L
+    move.b  %d2, %d1                    | 受信データ data → %D1.B (レジスタのずれを調整)
+    jsr     INQ                         | INQ の復帰値は無視してよい
+
+INTERGET_EXIT:
+    movem.l (%sp)+, %d0-%d1             | 退避したレジスタの復元
+    rts
 
 ***************************************************************
 ** GETSTRING(ch, p, size) : 受信キューからデータを取り出す (Step 6, 3.10.1 節 p.38)
@@ -52,6 +62,44 @@ INTERGET:
 **   【処理内容】p.38 の (1)〜(9)．
 ***************************************************************
 GETSTRING:
-	| TODO
-	moveq.l	#0,%D0                  | 仮実装: 0 バイト
-	rts
+    movem.l %d1-%d4/%a0, -(%sp)         | 作業用レジスタの退避 (%D0は戻り値のため退避しない)
+
+    * (1) ch ≠ 0 ならば何もせず終了 (戻り値 0 で終了)
+    cmpi.l  #0, %d1
+    bne     GETSTRING_ERR
+
+    * (2) sz ← 0 (%D4.L を sz として使用)，i ← p (%A0 を i として使用)
+    moveq.l #0, %d4                     | sz = 0
+    movea.l %d2, %a0                    | i = p
+
+GETSTRING_LOOP:
+    * (3) sz == size ならば (9) へ
+    cmp.l   %d3, %d4
+    beq     GETSTRING_DONE
+
+    * (4) OUTQ(0, data) により受信キュー(0番)から 8bit データ data を取り出す
+    moveq.l #0, %d0                     | キュー番号 no = 0 → %D0.L
+    jsr     OUTQ                        | 戻り値: %D0.L = 0 or 1, %D1.B = data
+
+    * (5) OUTQ の復帰値 (%D0) が 0 (失敗: queue empty) ならば (9) へ
+    cmpi.l  #0, %d0
+    beq     GETSTRING_DONE
+
+    * (6) アドレス i で始まる領域に data をコピー ＆ (7) sz++, i++
+    move.b  %d1, (%a0)+                 | m[i] = data, i++
+    addq.l  #1, %d4                     | sz++
+
+    * (8) (3) へ戻る
+    bra     GETSTRING_LOOP
+
+GETSTRING_DONE:
+    * (9) %D0 ← sz として終了
+    move.l  %d4, %d0
+    bra     GETSTRING_EXIT
+
+GETSTRING_ERR:
+    moveq.l #0, %d0                     | ch ≠ 0 の場合は 0 を返す
+
+GETSTRING_EXIT:
+    movem.l (%sp)+, %d1-%d4/%a0         | 退避したレジスタの復元
+    rts
