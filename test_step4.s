@@ -4,6 +4,8 @@
 **   - 走行レベルを落とし、送信割り込み(TXAE)を許可して自動送信させる
 ***************************************************************/
 .include "os_queue.s"
+.include "os_init.s"
+
 
 .section .text
 .global main
