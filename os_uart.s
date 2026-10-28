@@ -37,7 +37,7 @@ INTERPUT:
 
 INTERPUT_MASK:
     andi.w #0xfffe, USTCNT1 /* 最下位ビットのみ0にし他は影響しない */
-    braINTERPUT_BACK
+    bra INTERPUT_BACK
     
 INTERPUT_BACK:
     move.w (%SP)+, %SR
