@@ -20,8 +20,29 @@
 **              UTX1 への書き込みでは上位 8bit のヘッダを忘れずに．
 ***************************************************************
 INTERPUT:
-	| TODO
-	rts
+	move.w %SR, -(%SP)
+    cmpi.l #0, %d1
+	bne	INTERPUT_BACK
+
+    move.l #1, %d0
+    jsr OUTQ /* 成功不成功はd0へ */
+    
+    cmpi.l #0, %d0
+    beq INTERPUT_MASK
+
+    and.l #0x000000FF, %d1 /* 下位8bit以外クリア */
+    ori.w #0x0800, %d1 /* 上位8ビット制御ビット　フロー制御は行わない */
+    move.w %d1, UTX1
+    bra INTERPUT_BACK
+
+INTERPUT_MASK:
+    andi.w #0xfffe, USTCNT1 /* 最下位ビットのみ0にし他は影響しない */
+    bra
+    
+INTERPUT_BACK:
+    move.w (%SP)+, %SR
+
+rts
 
 ***************************************************************
 ** PUTSTRING(ch, p, size) : 送信キューにデータを入れる (Step 5, 3.9.1 節 p.35)
