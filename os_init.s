@@ -75,7 +75,7 @@ boot:
 	**       (3.6 節 p.31 の 4 つの準備，B.3.4 の推奨値)．
 	****************
 	move.w	#0xe108, USTCNT1
-	move.l	#0xff3ffb, IMR
+	move.l	#0xff3ff9, IMR
 	move.w	#0x2000, %SR
 
 	bra	MAIN                    | ユーザプログラム / テストプログラムへ
