@@ -4,7 +4,8 @@
 **   - 空ループを挟んだ後、TDATA2 ("klmnopqrstuvwxyz") を繰り返し送信
 ***************************************************************/
 
-
+.include "os_defs.s"       /* 定数定義など */
+.include "os_queue.s"      /* キュー関連 (QUEUE_INIT, INQ, OUTQ 等) */
 .include "os_uart.s"       /* UART・INTERPUT・PUTSTRING 等 */
 
 
