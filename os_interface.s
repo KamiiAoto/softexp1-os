@@ -18,10 +18,10 @@
 ***************************************************************
 UART1_INTERRUPT:
 
-    * D0とD1の元の値を保存
-    move.l %D0, -(%SP)
-    move.l %D1, -(%SP)
+    * D0~D3の元の値を保存 (複数レジスタは movem でまとめて積む)
+    movem.l %D0-%D3, -(%SP)
 
+    ******** 送信 (Step 4) ********
     * UTX1の内容を取得
     move.w UTX1, %D0
 
@@ -39,9 +39,27 @@ UART1_INTERRUPT:
 
 NOT_SEND:
 
-    * D1とD0を元の値に復元
-    move.l (%SP)+, %D1
-    move.l (%SP)+, %D0
+    ******** 受信 (Step 6) ********
+    * URX1の内容を取得 (一度読むと更新されるので，以降はD3のコピーを使う)
+    move.w URX1, %D3
+
+    * bit13 (DATA READY) を調べる (btst は D3 を壊さない)
+    btst #13, %D3
+
+    * bit13が0なら受信処理を行わない
+    beq NOT_RECEIVE
+
+    * INTERGETにチャネル番号0と受信データ (URX1の下位8bit) を渡す
+    move.l #0x0000, %D1
+    move.b %D3, %D2
+
+    * 受信担当のINTERGETを呼び出す
+    jsr INTERGET
+
+NOT_RECEIVE:
+
+    * D0~D3を元の値に復元 (退避と同じ組)
+    movem.l (%SP)+, %D0-%D3
 
     * 割り込み前の処理に復帰
     rte
