@@ -8,10 +8,7 @@
 .include "os_queue.s"      /* キュー関連 (QUEUE_INIT, INQ, OUTQ 等) */
 .include "os_uart.s"       /* UART・INTERPUT・PUTSTRING 等 */
 
-.section .data
-.even
-TDATA1: .ascii "0123456789ABCDEF"
-TDATA2: .ascii "klmnopqrstuvwxyz"
+
 
 .section .text
 .global main
@@ -63,3 +60,12 @@ repeat_wait:
     bne     repeat_wait
 
     bra     test_repeat_loop        /* 無限に繰り返す */
+
+
+
+
+
+.section .data
+.even
+TDATA1: .ascii "0123456789ABCDEF"
+TDATA2: .ascii "klmnopqrstuvwxyz"
