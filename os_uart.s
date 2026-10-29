@@ -12,6 +12,10 @@
 .section .text
 .even
 
+.include "os_defs.s"       /* 定数定義など */
+.include "os_queue.s"      /* キュー関連 (QUEUE_INIT, INQ, OUTQ 等) */
+.include "os_uart.s"       /* UART・INTERPUT・PUTSTRING 等 */
+
 ***************************************************************
 ** INTERPUT(ch) : 送信割り込み処理 (Step 4, 3.8.1 節 p.33)
 **   【入力】  %D1.L = チャネル ch
