@@ -1,71 +1,88 @@
-/***************************************************************
-** test_step5.s : Step 3.9.2 送信制御部の動作テストプログラム
-**   - TDATA1 ("0123456789ABCDEF") を PUTSTRING で一度送信
-**   - 空ループを挟んだ後、TDATA2 ("klmnopqrstuvwxyz") を繰り返し送信
-***************************************************************/
-
 .include "os_defs.s"       /* 定数定義など */
 .include "os_queue.s"      /* キュー関連 (QUEUE_INIT, INQ, OUTQ 等) */
 .include "os_uart.s"       /* UART・INTERPUT・PUTSTRING 等 */
+.include "os_init.s"
+.include "os_interface.s" 
 
 
-
-.section .text
-.global main
-
-main:
-    /* 1. すべての割り込みをマスク (走行レベルを 7 に設定) */
-    move.w  #0x2700, %SR
-
-    /* 2. 初期化モジュール呼び出し (QUEUE_INIT 等) */
-    jsr     QUEUE_INIT
-
-    /* 3. USTCNT1 を操作して送信割り込みをマスクしておく (TXAE = 0) */
-    andi.w  #0xFFFE, 0xFFF900
-
-    /* 4. 走行レベルを 0 にし、割り込み許可(スーパーバイザーモードは維持ーーー) */
-    move.w  #0x2000, %SR
-
-    /* 5. PUTSTRING(0, #TDATA1, 16) を実行 */
-    move.l  #0, %d1                 /* ch = 0 (%d1.L) */
-    
-    /* 修正ポイント: lea はアドレスレジスタ (%a2) で受けてから %d2 に渡す */
-    lea.l   TDATA1, %a2             /* p のアドレスを一時的に %a2 へ */
-    move.l  %a2, %d2                /* PUTSTRING の仕様に合わせて %d2.L にセット */
-    
-    move.l  #16, %d3                /* size = 16 (%d3.L) */
-    jsr     PUTSTRING
-
-    /* 6. 数秒の空ループ処理を行う (ウェイト) */
-    move.l  #0x00500000, %d6        /* 適当なウェイト値 */
-wait_loop:
-    subq.l  #1, %d6
-    bne     wait_loop
-
-    /* 7. PUTSTRING(0, #TDATA2, 16) を繰り返し実行するループ */
-test_repeat_loop:
-    move.l  #0, %d1                 /* ch = 0 */
-    
-    /* 同様に TDATA2 のアドレスを %a2 経由で %d2 に渡す */
-    lea.l   TDATA2, %a2
-    move.l  %a2, %d2
-    
-    move.l  #16, %d3                /* size = 16 */
-    jsr     PUTSTRING
-
-    /* 繰り返し速度を調整するための軽いウェイト */
-    move.l  #0x00010000, %d6
-repeat_wait:
-    subq.l  #1, %d6
-    bne     repeat_wait
-
-    bra     test_repeat_loop        /* 無限に繰り返す */
+***************************************************************
+** 各種レジスタ定義 (Step 1: p.29)
+***************************************************************
 
 
+***************************************************************
+** スタック領域の確保 (.bss)
+***************************************************************
+.section .bss
+.even
+SYS_STK:
+    .ds.b   0x4000
+.even
+SYS_STK_TOP:
 
-
-
+***************************************************************
+** テスト用文字列データ (.data, 3.9.2節 p.36)
+***************************************************************
 .section .data
 .even
 TDATA1: .ascii "0123456789ABCDEF"
 TDATA2: .ascii "klmnopqrstuvwxyz"
+
+***************************************************************
+** 初期化ルーチン (boot)
+***************************************************************
+.section .text
+.even
+boot:
+    move.w  #0x2700, %sr            /* スーパーバイザ & 割り込み禁止 */
+    lea.l   SYS_STK_TOP, %sp        /* SSP の設定 */
+
+    * 割り込みコントローラの初期化
+    move.b  #0x40, IVR              /* ベクタ基点 = 0x40 + level */
+    move.l  #0x00ffffff, IMR        /* 全割り込みマスク */
+
+    * 割り込みベクタの設定 (Level 4 UART1 = ベクタ番号68 = 0x110番地)
+    move.l  #uart1_interrupt, 0x110
+
+    * キューの初期化 (Step 0)
+    jsr     QUEUE_INIT
+
+    * UART1 の初期化 (送受信有効、送受信割り込みは両方マスク状態: 0xe100)
+    move.w  #0x0000, USTCNT1        /* リセット */
+    move.w  #0xe100, USTCNT1        /* 8bit, 1stop, パリティなし, 割り込み禁止 */
+    move.w  #0x0038, UBAUD1         /* 230400bps (※P30変更箇所) */
+
+    * タイマ関係の初期化
+    move.w  #0x0004, TCTL1
+
+    * IMR で UART1 割り込み (Bit 2) を許可
+    andi.l  #0xfffffffb, IMR
+
+    bra     MAIN
+
+***************************************************************
+** Step 5 動作テスト本体 (3.9.2節 p.36)
+***************************************************************
+MAIN:
+    move.w  #0x2000, %sr            /* スーパーバイザモードのまま走行レベルを 0 に */
+
+    * (1) PUTSTRING(0, #TDATA1, 16) を1回実行
+    move.l  #0, %d1                 /* ch = 0 */
+    move.l  #TDATA1, %d2            /* p = #TDATA1 */
+    move.l  #16, %d3                /* size = 16 */
+    jsr     PUTSTRING
+
+    * (2) 数秒間の空ループ処理
+    move.l  #0x100000, %d7          /* ループ回数は環境に応じ調整 (例: 0x100000〜0x400000) */
+WAIT_LOOP:
+    subq.l  #1, %d7
+    bne     WAIT_LOOP
+
+    * (3) PUTSTRING(0, #TDATA2, 16) を無限に繰り返し実行
+SEND_LOOP:
+    move.l  #0, %d1                 /* ch = 0 */
+    move.l  #TDATA2, %d2            /* p = #TDATA2 */
+    move.l  #16, %d3                /* size = 16 */
+    jsr     PUTSTRING
+    bra     SEND_LOOP
+
