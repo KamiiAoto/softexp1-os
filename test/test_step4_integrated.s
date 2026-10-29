@@ -5,7 +5,7 @@
 
 * 各担当のプログラムを組み込む
 .include "os_defs.s"
-.include "os_init_step4.s"
+.include "test/os_init_step4.s"
 .include "os_interface.s"
 .include "os_queue.s"
 .include "os_uart.s"

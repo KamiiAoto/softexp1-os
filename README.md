@@ -25,12 +25,14 @@
 | `os_timer.s` | RESET_TIMER, SET_TIMER, CALL_RP（Step 7） |
 | `user_echo.s` | Step 9 のユーザプログラム（MAIN） |
 | `main_echo.s` | 班の最終成果物の入口（.include を並べるだけ） |
-| `test_step0_queue.s` | Step 0 のキューのテスト（エミュレータ用） |
-| `test_step1.s` | Step 1 のテスト。Step N のテストはこれをコピーして `test_stepN.s` を作る |
+| `test/` | 各 Step のテスト（`test_*.s`）と，テスト専用の `os_init_step4.s` |
+| `test/test_step0_queue.s` | Step 0 のキューのテスト（エミュレータ用） |
+| `test/test_step1.s` | Step 1 のテスト。Step N のテストはこれをコピーして `test/test_stepN.s` を作る |
 | `tools/bundle.sh` | .include を展開して提出用の 1 ファイルを作る |
 
-- 入口ファイル（`main_*.s`, `test_*.s`）では `os_defs.s` → `os_init.s` の順に最初に .include する（boot を 0x400 番地に置くため）。
+- 入口ファイル（`main_*.s`, `test/test_*.s`）では `os_defs.s` → `os_init.s` の順に最初に .include する（boot を 0x400 番地に置くため）。
 - `os_*.s` の中では .include を使わない。
+- テストもリポジトリの直下でアセンブルする（`m68k-as -t 400 test/test_step1.s`）。.include のファイル名は打った場所から探されるので，`test/` の中のテストでも `.include "os_defs.s"` のまま書けばよい（`cd test` してから打つと `can't open` になる）。`.abs` などは直下にできる。
 - 選択課題（Step 10）は各自 `user_<名前>.s`（MAIN を定義）と `main_<名前>.s`（`main_echo.s` の `user_echo.s` を差し替えたもの）を作る。
 
 ## 環境の構築（最初の 1 回だけ）
@@ -61,7 +63,7 @@ cd softexp1-os                                  # 6. リポジトリの中に入
 ls                                              # 7. README.md や os_*.s が見えれば成功
 git status                                      # 8. "On branch main" "up to date" と出れば OK
 
-m68k-as -t 400 test_step1.s                     # 9. アセンブルできるか確認（test_step1.abs ができる）
+m68k-as -t 400 test/test_step1.s                # 9. アセンブルできるか確認（test_step1.abs ができる）
 ```
 
 - **手順 2（名前とメール）は必須。** git はコミットのたびに「誰が変更したか」としてこの 2 つを記録する。設定しないと `Please tell me who you are` と出てコミットできない。
@@ -86,6 +88,7 @@ m68k-as -t 400 test_step1.s                     # 9. アセンブルできるか
 
 ```sh
 m68k-as -t 400 main_echo.s      # main_echo.abs と main_echo.LIS ができる
+m68k-as -t 400 test/test_step5.s  # テストも直下で打つ（test_step5.abs は直下にできる）
 m68k-term                       # C-\ c → xm main_echo.abs → c → 何かキーを押す
 m68k-emu                        # エミュレータ（キューのテストなど。内蔵デバイスは動かない）
 ```
