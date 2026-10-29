@@ -60,7 +60,7 @@ rts
 ***************************************************************
 PUTSTRING:
 	move.w %SR, -(%SP)
-    movem.l %d2-%d5/%a0-%a1, -(%sp)
+    movem.l %d1-%d5/%a0-%a1, -(%sp)
 
     cmpi.l #0, %d1
     bne PUTSTRING_END
@@ -99,7 +99,7 @@ PUTSTRING_END:
     move.l #0, %d0
 
 PUTSTRING_BACK:
-    movem.l (%sp)+, %d2-%d5/%a0-%a1
+    movem.l (%sp)+, %d1-%d5/%a0-%a1
     move.w (%SP)+, %SR 
 	rts
 
