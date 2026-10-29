@@ -93,6 +93,31 @@ m68k-term                       # C-\ c → xm main_echo.abs → c → 何かキ
 m68k-emu                        # エミュレータ（キューのテストなど。内蔵デバイスは動かない）
 ```
 
+## 自分の PC でアセンブルする（m68k-bsvc-docker）
+
+実験室の PC には `m68k-as` が入っているが，自分の PC にはない。自分の PC では **[m68k-bsvc-docker](https://github.com/KamiiAoto/m68k-bsvc-docker)** を使う。
+m68k-as と BSVC（68000 シミュレータ）を Docker にまとめたもので，Apple Silicon の Mac でも動く。BSVC の画面はブラウザで開く。
+
+必要なもの: Docker Desktop。初回の `docker compose up` はビルドが走るので，20 分ほどかかることがある。
+
+```sh
+cd ~                                            # softexp1-os と同じ場所に置く
+git clone https://github.com/KamiiAoto/m68k-bsvc-docker.git
+cd m68k-bsvc-docker
+echo "WORKSPACE=../softexp1-os" > .env          # このリポジトリをコンテナの /root/work に見せる
+docker compose up -d                            # 起動（終わるときは docker compose down）
+
+docker compose exec m68k-bsvc bash              # コンテナに入る
+cd /root/work                                   # = softexp1-os の直下
+m68k-as -t 400 main_echo.s                      # 実験室と同じコマンドでアセンブルできる
+m68k-as -t 400 test/test_step5.s
+```
+
+- 生成物（`.abs`, `.LIS`）は Mac 側の softexp1-os にもそのままできる。ただし `.gitignore` の対象なので push はされない。実験室では `git pull` してからアセンブルし直す。
+- BSVC は <http://localhost:6080/vnc.html> を開いて Connect を押すと出る。File → Load Program で `.abs` を読み込み，PC を `0x400` にして実行する。
+- **BSVC では UART・タイマ（MC68VZ328 の内蔵デバイス）は動かない。** 確認できるのはアセンブルが通るかどうかと，キューなどのロジックだけ。送受信とタイマの確認は実機で行う。
+- 詳しい使い方は m68k-bsvc-docker の README を見る。
+
 ## 提出用の 1 ファイル化（付録 A.6.3.2）
 
 簡易 OS は最終的に 1 ファイルで提出する。
