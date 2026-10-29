@@ -89,7 +89,7 @@ PUTSTRING_CHECK:
     bra PUTSTRING_CHECK
 
 PUTSTRING_ENABLE:
-    ori.w #0x0004, 0xFFF900 /* USTCNT1のbitを1に */
+    ori.w #0x0004, USTCNT1 /* USTCNT1のbitを1に */
 
 PUTSTRING_FINISH:
     move.l %d4, %d0
