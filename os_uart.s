@@ -24,6 +24,10 @@
 ***************************************************************
 INTERPUT:
 	move.w %SR, -(%SP)
+	move.w #0x2700, %sr /* 割り込み禁止に */
+
+	movem.l %d0-%d1, -(%sp)
+	
     cmpi.l #0, %d1
 	bne	INTERPUT_BACK
 
@@ -33,16 +37,18 @@ INTERPUT:
     cmpi.l #0, %d0
     beq INTERPUT_MASK
 
-    and.l #0x000000FF, %d1 /* 下位8bit以外クリア */
+    andi.l #0x000000FF, %d1 /* 下位8bit以外クリア */
     ori.w #0x0800, %d1 /* 上位8ビット制御ビット　フロー制御は行わない */
     move.w %d1, UTX1
     bra INTERPUT_BACK
 
+
 INTERPUT_MASK:
-    andi.w #0xfffe, USTCNT1 /* 最下位ビットのみ0にし他は影響しない */
+    andi.w #0xfffb, USTCNT1 /* 最下位ビットのみ0にし他は影響しない */
     bra INTERPUT_BACK
     
 INTERPUT_BACK:
+	movem.l (%sp)+, %d0-%d1
     move.w (%SP)+, %SR
 
 rts
