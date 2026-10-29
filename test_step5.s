@@ -3,6 +3,7 @@
 .include "os_uart.s"       /* UART・INTERPUT・PUTSTRING 等 */
 .include "os_init.s"
 .include "os_interface.s" 
+.include "os_timer.s"
 
 
 ***************************************************************
