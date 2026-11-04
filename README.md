@@ -3,6 +3,53 @@
 68000 互換 CPU（MC68VZ328）ボード上で動く簡易 OS とエコーバックプログラムを班で開発するためのリポジトリ。
 仕様はすべて「ソフトウェア実験I テキスト」に従う（ページ番号はテキストの印刷ページ）。
 
+## 個人課題（Step 10）での simple_os の使い方
+
+簡易 OS（`os_*.s`）は完成していて，実機での動作確認も済んでいる（`main_echo.s`，1 ファイル版は `dist/simple_os.s`）。
+個人課題では **OS には手を入れず，ユーザプログラム（`MAIN`）だけを自分で書いて差し替える**。
+
+OS の `boot` は初期化が終わると `bra MAIN` でユーザプログラムに飛ぶ。`main_echo.s` は OS のファイルと `user_echo.s`（`MAIN` を定義）を .include で並べているだけなので，`user_echo.s` を自分のファイルに替えれば，同じ OS の上で自分のプログラムが動く。
+
+### 手順
+
+```sh
+git pull                                    # 1. 最新の OS を取ってくる
+cp user_echo.s user_<名前>.s                # 2. エコーバックのプログラムをひな形にする
+cp main_echo.s main_<名前>.s                # 3. 入口ファイルを作る
+#    main_<名前>.s の  .include "user_echo.s"  を  .include "user_<名前>.s"  に書き換える
+#    （ほかの .include の行と順番はそのままにする）
+# 4. user_<名前>.s の MAIN 以下を自分の課題に書き換える
+m68k-as -t 400 main_<名前>.s                # 5. アセンブル（リポジトリの直下で打つ）
+m68k-term                                   # 6. 実機で実行: C-\ c → xm main_<名前>.abs → c → 何かキーを押す
+sh tools/bundle.sh main_<名前>.s <名前>.s   # 7. 提出用の 1 ファイル（dist/<名前>.s）を作る
+m68k-as -t 400 dist/<名前>.s                #    1 ファイル版も同じようにアセンブルできることを確認
+git add user_<名前>.s main_<名前>.s dist/<名前>.s
+git commit -m "Step 10: ○○を作成"         # 8. 自分のファイルだけをコミットして push
+git push
+```
+
+`dist/simple_os.s` をコピーして，中の `user_echo.s` の部分（`begin user_echo.s` 〜 `end user_echo.s`）を書き換えても動く。ただし OS に修正が入ったときに取り込めなくなるので，上の .include を使う方法をすすめる。
+
+### ユーザプログラムを書くときの決まり
+
+- **`MAIN` というラベルを必ず定義する。** 先頭で `move.w #0x0000,%SR`（ユーザモード，レベル 0）とユーザスタックの設定（`lea.l USR_STK_TOP,%SP`）をする。ここは `user_echo.s` のまま残せばよい。
+- **入出力とタイマはシステムコール（`trap #0`）を使う。** UART やタイマのレジスタをユーザプログラムから直接触らない。番号は `os_defs.s` の `SYSCALL_NUM_*` を使う。
+
+  | %D0 | 機能 | 引数 | 戻り値 %D0 |
+  |---|---|---|---|
+  | `SYSCALL_NUM_GETSTRING` (1) | 受信キューから読む | %D1 = ch (0), %D2 = バッファの先頭, %D3 = 最大バイト数 | 読めたバイト数 |
+  | `SYSCALL_NUM_PUTSTRING` (2) | 送信キューに書く | %D1 = ch (0), %D2 = データの先頭, %D3 = バイト数 | 書けたバイト数 |
+  | `SYSCALL_NUM_RESET_TIMER` (3) | タイマを止める | なし | なし |
+  | `SYSCALL_NUM_SET_TIMER` (4) | タイマを設定する | %D1.W = 周期 t, %D2 = 呼ぶルーチン p | なし |
+
+  - GETSTRING は入力を待たない。何も打たれていなければ 0 がすぐ返るので，入力を待つときはループで呼ぶ（`user_echo.s` の `LOOP`）。
+  - SET_TIMER の t は 0.1 ms 単位（`user_echo.s` の 50000 は 5 秒）。
+  - p で渡すルーチンはタイマ割り込みの中で呼ばれる。使うレジスタを最初に `movem.l` で退避して最後に戻し，`rts` で終わる（`user_echo.s` の `TT` と同じ形にする）。
+- **OS が使っているラベル名と同じ名前を使わない。** 同じ名前があるとアセンブル時にエラーになる。OS では `boot`, `INQ`, `OUTQ`, `PUTSTRING`, `GETSTRING`, `SET_TIMER`, `RESET_TIMER`, `CALL_RP`, `task_p`, `SYS_STK`, `top0`, `s1` などを使っている。迷ったら `user_<名前>.s` のラベルに自分の名前の頭文字を付ける。
+- コードは `.section .text`，初期値のあるデータは `.section .data`，初期値のないデータ（バッファ・スタック）は `.section .bss` に置く（`user_echo.s` と同じ）。
+- **`os_*.s`，`main_echo.s`，`user_echo.s`，`dist/simple_os.s` は編集しない。** OS の不具合を見つけたら，その担当者（下の表）に伝える。
+- BSVC（エミュレータ）では UART とタイマが動かないので，動作の確認は実機で行う。
+
 ## メンバーと担当（表 3.1 p.22，5 人班）
 
 | 担当 | 名前 | 主なファイル | レビュー担当 |
