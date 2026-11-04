@@ -27,7 +27,7 @@ cp user_echo.s user_<名前>.s
 cp main_echo.s main_<名前>.s                
 ```
 
-> `dist/simple_os.s` をコピーして `begin user_echo.s` 〜 `end user_echo.s` の部分を書き換えても動く。
+> `simple_os.s` をコピーして `begin user_echo.s` 〜 `end user_echo.s` の部分を書き換えても動く。
 > ただし OS が修正されたときに取り込めないので，上の方法をすすめる。
 
 ## 2. ユーザプログラムの決まり
@@ -37,7 +37,7 @@ cp main_echo.s main_<名前>.s
 3. **OS と同じラベル名を使わない**（アセンブル時にエラーになる）。
    OS では `boot`, `INQ`, `OUTQ`, `PUTSTRING`, `GETSTRING`, `SET_TIMER`, `RESET_TIMER`, `CALL_RP`, `task_p`, `SYS_STK`, `top0`, `s1` などを使っている。迷ったら名前の頭文字を付ける。
 4. **置き場所:** コード → `.section .text`，初期値ありのデータ → `.section .data`，バッファ・スタック → `.section .bss`。
-5. **編集しないファイル:** `os_*.s`, `main_echo.s`, `user_echo.s`, `dist/simple_os.s`。OS の不具合は担当者（[4.2](#42-メンバーと担当)）に伝える。
+5. **編集しないファイル:** `os_*.s`, `main_echo.s`, `user_echo.s`, `simple_os.s`。OS の不具合は担当者（[4.2](#42-メンバーと担当)）に伝える。
 6. **動作確認は実機で。** BSVC（エミュレータ）では UART とタイマが動かない。
 
 ### システムコール
@@ -85,11 +85,11 @@ m68k-emu                          # エミュレータ（内蔵デバイスは�
 
 ### 提出用の 1 ファイル化（付録 A.6.3.2）
 
-`.include` を展開して `dist/` に 1 ファイルを作る。
+`.include` を展開して，リポジトリの直下に 1 ファイルを作る。
 
 ```sh
-sh tools/bundle.sh main_echo.s simple_os.s   # → dist/simple_os.s
-m68k-as -t 400 dist/simple_os.s              # 元と同じようにアセンブルできるか確認
+sh tools/bundle.sh main_echo.s simple_os.s   # → simple_os.s
+m68k-as -t 400 simple_os.s                   # 元と同じようにアセンブルできるか確認
 ```
 
 ## 4. リファレンス
@@ -106,7 +106,7 @@ m68k-as -t 400 dist/simple_os.s              # 元と同じようにアセンブ
 | `os_timer.s` | `RESET_TIMER`, `SET_TIMER`, `CALL_RP`（Step 7） |
 | `user_echo.s` | Step 9 のユーザプログラム（エコーバック） |
 | `main_echo.s` | 班の成果物の入口（`.include` を並べるだけ） |
-| `dist/simple_os.s` | `main_echo.s` を 1 ファイルにまとめた提出用 |
+| `simple_os.s` | `main_echo.s` を 1 ファイルにまとめた提出用 |
 | `test/` | 各 Step のテスト（`test_*.s`）とテスト用の `os_init_step4.s` |
 | `tools/bundle.sh` | 提出用の 1 ファイルを作るスクリプト |
 
