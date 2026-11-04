@@ -22,19 +22,9 @@ OS は初期化が終わると `bra MAIN` でユーザプログラムに飛ぶ�
 `main_echo.s` は OS と `user_echo.s`（`MAIN` を定義）を `.include` で並べているだけなので，`user_echo.s` を自分のファイルに替えれば，自分のプログラムが同じ OS の上で動く。
 
 ```sh
-git pull                                    # 1. 最新を取ってくる
-cp user_echo.s user_<名前>.s                # 2. ユーザプログラムのひな形
-cp main_echo.s main_<名前>.s                # 3. 入口ファイル
-                                            #    → .include "user_echo.s" を "user_<名前>.s" に書き換える
-                                            #      （ほかの行と順番はそのまま）
-                                            # 4. user_<名前>.s の MAIN 以下を書き換える
-m68k-as -t 400 main_<名前>.s                # 5. アセンブル
-m68k-term                                   # 6. 実機で実行（→ 3. 毎回の作業）
-sh tools/bundle.sh main_<名前>.s <名前>.s   # 7. 提出用の 1 ファイル → dist/<名前>.s
-m68k-as -t 400 dist/<名前>.s                #    1 ファイル版もアセンブルできるか確認
-git add user_<名前>.s main_<名前>.s dist/<名前>.s
-git commit -m "Step 10: ○○を作成"
-git push                                    # 8. 自分のファイルだけ push
+git pull                                    
+cp user_echo.s user_<名前>.s                
+cp main_echo.s main_<名前>.s                
 ```
 
 > `dist/simple_os.s` をコピーして `begin user_echo.s` 〜 `end user_echo.s` の部分を書き換えても動く。
