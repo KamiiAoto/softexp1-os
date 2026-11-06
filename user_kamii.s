@@ -46,6 +46,11 @@ MAIN_LOOP:
 	**   MAIN_LOOP に戻る．
 	lea.l	MSG_PROMPT, %a0
 	jsr 	PUTS
+	jsr 	READ_LINE
+	lea.l 	LINE_BUF, %a0
+	jsr 	PUTS
+	lea.l 	MSG_CRLF, %a0
+	jsr 	PUTS
 	bra		MAIN_LOOP
 
 
@@ -58,7 +63,19 @@ MAIN_LOOP:
 **             バッファには CHAR_BUF（1 バイト）を使う．
 ***************************************************************
 GETCHAR:
-	** TODO
+	movem.l	%d0/%d2/%d3, -(%sp)
+GETCHAR_LOOP:
+	move.l	#SYSCALL_NUM_GETSTRING, %d0
+	move.l	#0, %d1               | ch   = 0
+	move.l	#CHAR_BUF, %d2        | p    = #CHAR_BUF
+	move.l	#1, %d3               | size = 1
+	trap	#0
+	cmpi.l	#1, %d0
+	beq		GETCHAR_END
+	bra	GETCHAR_LOOP
+GETCHAR_END:
+	move.b 	CHAR_BUF, %d1
+	movem.l	(%sp)+, %d0/%d2/%d3
 	rts
 
 ***************************************************************
@@ -78,9 +95,9 @@ PUTCHAR_LOOP:
 	move.l	#CHAR_BUF,%d2                | p  = #BUF
 	trap	#0
 	cmpi.l	#1, %d0
-	beq 	PUTCHAR_FIN
+	beq 	PUTCHAR_END
 	bra		PUTCHAR_LOOP
-PUTCHAR_FIN:
+PUTCHAR_END:
 	movem.l	(%sp)+, %d0-%d3
 	rts
 
@@ -96,11 +113,11 @@ PUTS:
 PUTS_LOOP:
 	move.b	(%a0)+, %d1
 	cmpi.b	#0, %d1
-	beq		PUTS_FIN
+	beq		PUTS_END
 	jsr		PUTCHAR
 	bra		PUTS_LOOP
 
-PUTS_FIN:
+PUTS_END:
 	movem.l	(%sp)+, %d1/%a0
 	rts
 
@@ -114,7 +131,25 @@ PUTS_FIN:
 **     - LINE_BUF の大きさ（LINE_MAX）を超えて書き込まない．
 ***************************************************************
 READ_LINE:
-	** TODO
+	movem.l %d1-%d2/%a0, -(%sp)
+	lea.l 	LINE_BUF, %a0
+	move.b 	#0, %d2
+READ_LINE_LOOP:
+	jsr 	GETCHAR					| %d1 = 打たれた文字
+	cmpi.b 	#0x0d, %d1
+	beq 	READ_LINE_END
+	cmp.b 	#LINE_MAX-1, %d2
+	bcc 	READ_LINE_LOOP 	
+	move.b 	%d1, (%a0)+
+	addq.b 	#1, %d2
+	jsr		PUTCHAR					| 打った文字を画面に返す
+	bra 	READ_LINE_LOOP
+
+READ_LINE_END:
+	move.b 	#0, (%a0)
+	lea.l 	MSG_CRLF, %a0
+	jsr 	PUTS
+	movem.l (%sp)+, %d1-%d2/%a0
 	rts
 
 ***************************************************************
