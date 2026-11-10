@@ -48,14 +48,22 @@ MAIN_LOOP:
 	jsr 	PUTS
 	jsr 	READ_LINE
 	lea.l 	LINE_BUF, %a0
-	jsr 	PUTS
+	jsr 	PARSE_NUM
+	tst.l 	%d0
+	beq 	TEST_ERR
+	movea.l %a0, %a1
+	jsr 	PRINT_NUM
 	lea.l 	MSG_CRLF, %a0
 	jsr 	PUTS
-	move.l 	#655360, %d1
-	jsr		PRINT_NUM
+	movea.l %a1, %a0
+	jsr 	PUTS
 	lea.l 	MSG_CRLF, %a0
 	jsr 	PUTS
 	bra		MAIN_LOOP
+TEST_ERR:
+	lea.l 	MSG_ERR_SYNTAX, %a0
+	jsr 	PUTS
+	bra 	MAIN_LOOP
 
 
 ***************************************************************
