@@ -51,6 +51,10 @@ MAIN_LOOP:
 	jsr 	PUTS
 	lea.l 	MSG_CRLF, %a0
 	jsr 	PUTS
+	move.l 	#655360, %d1
+	jsr		PRINT_NUM
+	lea.l 	MSG_CRLF, %a0
+	jsr 	PUTS
 	bra		MAIN_LOOP
 
 
@@ -161,7 +165,34 @@ READ_LINE_END:
 **   【ヒント】値 = 値 × 10 + (文字 − '0') を，'0'〜'9' 以外が来るまで繰り返す．
 ***************************************************************
 PARSE_NUM:
-	** TODO
+	/* d2: 桁数のカウンタ */
+	movem.l %d2-%d3, -(%sp)
+	move.l 	#0, %d1
+	move.l 	#0, %d2
+PARSE_NUM_LOOP:
+	move.l 	#0, %d3
+	move.b 	(%a0), %d3
+	cmpi.l 	#'0', %d3
+	bcs 	PARSE_NUM_END
+	cmpi.l  #'9', %d3
+	bhi		PARSE_NUM_END
+	sub.l 	#'0', %d3
+	mulu.w	#0x0a, %d1
+	add.l 	%d3, %d1
+	cmpi.l	#32767, %d1
+	bhi 	PARSE_NUM_FAIL 
+	addq.l 	#1, %a0
+	addq.l 	#1, %d2
+	bra 	PARSE_NUM_LOOP
+PARSE_NUM_END:
+	cmp.l 	#0, %d2
+	beq 	PARSE_NUM_FAIL
+	move.l	#1, %d0
+	movem.l (%sp)+, %d2-%d3
+	rts
+PARSE_NUM_FAIL:
+	move.l	#0, %d0
+	movem.l (%sp)+, %d2-%d3
 	rts
 
 ***************************************************************
@@ -192,8 +223,45 @@ CALC:
 **       2 回 divu.w する（上位の余りを下位の割り算に持ち越す）．
 ***************************************************************
 PRINT_NUM:
-	** TODO
-	rts
+		movem.l	%d0-%d3/%a0, -(%sp)
+		cmp.l	#0, %d1
+		bpl 	PRINT_NUM_POS
+		move.l 	%d1, %d3
+		move.b 	#'-', %d1
+		jsr PUTCHAR
+		move.l 	%d3, %d1
+		neg.l 	%d1
+PRINT_NUM_POS:
+		lea.l	NUM_BUF+NUM_LEN, %a0
+		clr.b 	-(%a0)
+PRINT_NUM_LOOP:
+		/* d0: 0x0a, d1: 入力, d2: 余り*/
+		swap    %d1          	| d1 = L : H
+		move.w 	#0x0a, %d0
+        moveq   #0, %d2
+        move.w  %d1, %d2       	| d2 = 0 : H
+        divu.w  %d0, %d2       	| d2 = r1 : qH   (H ÷ D)
+        move.w  %d2, %d1       	| d1 = L : qH
+        swap    %d1          	| d1 = qH : L
+        move.w  %d1,%d2       	| d2 = r1 : L    (= r1*65536 + L)
+        divu.w  %d0, %d2       	| d2 = r2 : qL
+        move.w  %d2, %d1       	| d1 = qH : qL  ← 商
+        swap    %d2          	| d2.w = r2     ← 余り
+        
+		addi.b 	#'0', %d2
+		move.b 	%d2, -(%a0)
+        
+		/*（商が 0 でなければ PRINT_NUM_LOOP へ）*/
+		cmp.l 	#0, %d1
+		bne 	PRINT_NUM_LOOP
+
+        /*（%a0 から PUTS）                  ← 詰めた先頭から表示 */
+        jsr PUTS
+		
+		movem.l (%sp)+, %d0-%d3/%a0
+        rts
+
+
 
 
 ****************************************************************
