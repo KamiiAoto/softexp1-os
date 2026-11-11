@@ -39,32 +39,45 @@ MAIN:
 	** 走行モードとレベルの設定（ユーザモードへの移行）． user_echo.s と同じ．
 	move.w	#0x0000, %SR            | USER MODE, LEVEL 0
 	lea.l	USR_STK_TOP,%SP         | user stack の設定
-
 MAIN_LOOP:
 	** TODO: 上の「全体の流れ」(1)〜(8) を書く
 	**   エラーのときは該当するメッセージ（MSG_ERR_*）を PUTS で表示して
 	**   MAIN_LOOP に戻る．
-	lea.l	MSG_PROMPT, %a0
+	lea.l	MSG_PROMPT, %a0 		| (1)
 	jsr 	PUTS
 	jsr 	READ_LINE
-	lea.l 	LINE_BUF, %a0
-	jsr 	PARSE_NUM
+	lea.l 	LINE_BUF, %a0			| (2)
+	jsr 	PARSE_NUM				| (3)
 	tst.l 	%d0
-	beq 	TEST_ERR
-	movea.l %a0, %a1
+	beq 	SYNTAX_ERR
+	move.l 	%d1, %d4				| 2回目のPARSE_NUMでd1が上書きされるため
+	move.b 	(%a0)+, %d3				| (4) CALCの第３引数
+	jsr 	PARSE_NUM				| (5)
+	tst.l 	%d0
+	beq 	SYNTAX_ERR
+	move.l 	%d1, %d2				| CALCの第2引数
+	move.l 	%d4, %d1				| CALCの第1引数
+	cmpi.b 	#0, (%a0) 			| (6)
+	bne 	SYNTAX_ERR
+	jsr 	CALC					| (7)
+	cmpi.l 	#0, %d0
+	beq 	DIV0_ERR
+	cmpi.l 	#2, %d0
+	beq 	SYNTAX_ERR
+	lea.l 	MSG_EQUAL, %a0			| (8)
+	jsr 	PUTS
 	jsr 	PRINT_NUM
-	lea.l 	MSG_CRLF, %a0
-	jsr 	PUTS
-	movea.l %a1, %a0
-	jsr 	PUTS
-	lea.l 	MSG_CRLF, %a0
-	jsr 	PUTS
-	bra		MAIN_LOOP
-TEST_ERR:
+	lea.l  	MSG_CRLF, %a0
+	jsr 	PUTS				
+	bra		MAIN_LOOP				| (9)
+SYNTAX_ERR:
 	lea.l 	MSG_ERR_SYNTAX, %a0
 	jsr 	PUTS
 	bra 	MAIN_LOOP
-
+DIV0_ERR:
+	lea.l 	MSG_ERR_DIV0, %a0
+	jsr 	PUTS
+	bra 	MAIN_LOOP
 
 ***************************************************************
 ** GETCHAR : 1 文字受け取るまで待つ
@@ -121,14 +134,12 @@ PUTCHAR_END:
 ***************************************************************
 PUTS:
 	movem.l	%d1/%a0, -(%sp)
-
 PUTS_LOOP:
 	move.b	(%a0)+, %d1
 	cmpi.b	#0, %d1
 	beq		PUTS_END
 	jsr		PUTCHAR
 	bra		PUTS_LOOP
-
 PUTS_END:
 	movem.l	(%sp)+, %d1/%a0
 	rts
@@ -156,7 +167,6 @@ READ_LINE_LOOP:
 	addq.b 	#1, %d2
 	jsr		PUTCHAR					| 打った文字を画面に返す
 	bra 	READ_LINE_LOOP
-
 READ_LINE_END:
 	move.b 	#0, (%a0)
 	lea.l 	MSG_CRLF, %a0
@@ -206,7 +216,7 @@ PARSE_NUM_FAIL:
 ***************************************************************
 ** CALC : 四則演算をする
 **   【入力】%D1.L = 1 つ目の数，%D2.L = 2 つ目の数，%D3.B = 演算子の文字
-**   【戻り値】%D0.L = 1 成功 / 0 失敗（0 で割ろうとした）
+**   【戻り値】%D0.L = 1 成功 / 0 失敗（0 で割ろうとした）/ 2 演算子が違う（Mainloopで使用）
 **             %D1.L = 計算結果（32 ビット符号付き）
 **   【ヒント】
 **     - '*' は muls.w，'/' は divs.w を使う．
@@ -215,7 +225,38 @@ PARSE_NUM_FAIL:
 **     - 割る数が 0 だと例外が起きるので，divs.w の前に必ず調べる．
 ***************************************************************
 CALC:
-	** TODO
+	cmpi.b 	#'+', %d3
+	beq		CALC_ADD
+	cmpi.b 	#'-', %d3
+	beq		CALC_SUB
+	cmpi.b 	#'*', %d3
+	beq		CALC_MUL
+	cmpi.b 	#'/', %d3
+	beq		CALC_DIV
+	bra 	CALC_FAIL
+CALC_ADD:
+	add.l 	%d2, %d1
+	bra 	CALC_END
+CALC_SUB:
+	sub.l 	%d2, %d1
+	bra 	CALC_END
+CALC_MUL:
+	muls.w 	%d2, %d1
+	bra 	CALC_END
+CALC_DIV:
+	cmp.l 	#0, %d2
+	beq 	CALC_DIV0
+	divs.w 	%d2, %d1
+	ext.l 	%d1			| 上位のあまりを消す
+	bra 	CALC_END
+CALC_FAIL:
+	move.l 	#2, %d0
+	rts
+CALC_DIV0:
+	move.l 	#0, %d0
+	rts
+CALC_END:
+	move.l 	#1, %d0
 	rts
 
 ***************************************************************
@@ -268,9 +309,6 @@ PRINT_NUM_LOOP:
 		
 		movem.l (%sp)+, %d0-%d3/%a0
         rts
-
-
-
 
 ****************************************************************
 *** 初期値のあるデータ領域
