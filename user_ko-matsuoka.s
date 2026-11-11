@@ -1,13 +1,8 @@
 ***************************************************************
-** user_ko-matsuoka.s : Step 10 時計(2)
+** user_ko-matsuoka.s : Step 10 時計(2) hh:mm:ss
 **
-**
-**   .SET_TIMERで1sごとにTICKを呼び出し
-**
-**
-**   システムコールの番号は os_defs.s で定義済み．
-**   確認すること (3.13.2 節): キー入力がエコーバックされる．
-**   5 秒ごとに ****** が表示され改行，5 回で終了．
+** 1sごとにTTを呼び出し、TIMEを1s進めて表示
+**　23:59:59の次は00:00:00
 ***************************************************************
 
 ****************************************************************
@@ -24,52 +19,75 @@ MAIN:
 	move.l	#SYSCALL_NUM_RESET_TIMER,%D0
 	trap	#0
 
+	** 最初に00:00:00の表示
+	move.l #SYSCALL_NUM_PUTSTRING, %D0
+	move.l #0, %D1
+	move.l #TIME, %D2
+	move.l #9, %D3
+	trap #0
+	
 	** システムコールによる SET_TIMER の起動
 	move.l	#SYSCALL_NUM_SET_TIMER, %D0
-	move.w	#50000, %D1
-	move.l	#TT,    %D2
+	move.w	#10000, %D1
+	move.l	#TT, %D2
 	trap	#0
 
-******************************
-* sys_GETSTRING, sys_PUTSTRING のテスト
-* ターミナルの入力をエコーバックする
-******************************
 LOOP:
-	move.l	#SYSCALL_NUM_GETSTRING, %D0
-	move.l	#0,   %D1               | ch   = 0
-	move.l	#BUF, %D2               | p    = #BUF
-	move.l	#256, %D3               | size = 256
-	trap	#0
-
-	move.l	%D0, %D3                | size = %D0 (length of given string)
-	move.l	#SYSCALL_NUM_PUTSTRING, %D0
-	move.l	#0, %D1                 | ch = 0
-	move.l	#BUF,%D2                | p  = #BUF
-	trap	#0
-	bra	LOOP
+	bra LOOP
 
 ******************************
-* タイマのテスト
-* '******' を表示し改行する．
-* ５回実行すると，RESET_TIMER をする．
+* TT:1sごとに呼ばれる
+* secondsの1の位から進め、繰り上がりを行う
 ******************************
 TT:
 	movem.l	%D0-%D7/%A0-%A6,-(%SP)
-	cmpi.w	#5,TTC                  | TTC カウンタで 5 回実行したかどうか数える
-	beq	TTKILL                  | 5 回実行したら，タイマを止める
 
-	move.l	#SYSCALL_NUM_PUTSTRING,%D0
-	move.l	#0,    %D1              | ch = 0
-	move.l	#TMSG, %D2              | p  = #TMSG
-	move.l	#8,    %D3              | size = 8
-	trap	#0
+	** seconds
+	addi.b #1, TIME+8
+	cmpi.b #'9', TIME+8
+	bls PRINT
+	move.b #'0', TIME+8
 
-	addi.w	#1,TTC                  | TTC カウンタを 1 つ増やして
-	bra	TTEND                   | そのまま戻る
-TTKILL:
-	move.l	#SYSCALL_NUM_RESET_TIMER,%D0
-	trap	#0
-TTEND:
+	addi.b #1, TIME+7
+	cmpi.b #'5', TIME+7
+	bls PRINT
+	move.b #'0', TIME+7
+
+
+	** minutes
+	addi.b #1, TIME+5
+	cmpi.b #'9', TIME+5
+	bls PRINT
+	move.b #'0', TIME+5
+
+	addi.b #1, TIME+4
+	cmpi.b #'5', TIME+4
+	bls PRINT
+	move.b #'0', TIME+4
+
+
+	** hours
+	addi.b #1, TIME+2
+	cmpi.b #'9', TIME+2
+	bls CHK24
+	move.b #'0', TIME+2
+	addi.b #1, TIME+1
+
+CHK24:
+	cmpi.b #'2', TIME+1
+	bne PRINT
+	cmpi.b #'4', TIME+2
+	bne PRINT
+	move.b #'0', TIME+1
+	move.b #'0', TIME+2
+
+PRINT:	
+	move.l #SYSCALL_NUM_PUTSTRING, %D0
+	move.l #0, %D1
+	move.l #TIME, %D2
+	move.l #9, %D3
+	trap #0
+
 	movem.l	(%SP)+,%D0-%D7/%A0-%A6
 	rts
 
@@ -77,20 +95,15 @@ TTEND:
 *** 初期値のあるデータ領域
 ****************************************************************
 .section .data
-TMSG:
-	.ascii	"******\r\n"             | \r: 行頭へ (キャリッジリターン)
+TIME:
+	.ascii	"\r00:00:00"             | \r: 行頭へ (キャリッジリターン)
 	.even                           | \n: 次の行へ (ラインフィード)
-TTC:
-	.dc.w	0
-	.even
 
 ****************************************************************
 *** 初期値の無いデータ領域
 ****************************************************************
 .section .bss
-BUF:
-	.ds.b	256                     | BUF[256]
-	.even
+.even
 USR_STK:
 	.ds.b	0x4000                  | ユーザスタック領域
 	.even
