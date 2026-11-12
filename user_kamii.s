@@ -23,19 +23,46 @@
 **       divs.w がオーバーフローする（V フラグ）ので，範囲から外す．
 **     → muls.w と divs.w は符号付きなので，CALC は変えなくてよい．
 **
-** 【このあと足す予定】 3 つ以上の数と優先順位 → かっこ・BackSpace
+** 【第 3 段階: 3 つ以上の数と優先順位】
+**   入力例:  1+2*3       [Enter]   →  表示:  = 7
+**            10-4-3      [Enter]   →  表示:  = 3        （左から計算する）
+**            2*-3+10/4   [Enter]   →  表示:  = -4       （-6 + 2）
+**            1000*1000   [Enter]   →  表示:  = 1000000  （結果は 16 ビットを超えてよい）
+**            200*200*2   [Enter]   →  表示:  Error: overflow
+**            1+          [Enter]   →  表示:  Error: syntax
+**            3 4         [Enter]   →  表示:  Error: syntax
+**   - * と / を + と - より先に計算する．同じ強さの演算子は左から計算する．
+**   - 再帰下降で式を読む．式を 3 つの階層に分け，それぞれをルーチンにする．
+**       EXPR   = TERM   { (+ か -) TERM }      … 足し算・引き算の並び
+**       TERM   = FACTOR { (* か /) FACTOR }    … 掛け算・割り算の並び
+**       FACTOR = 符号付きの数                   … PARSE_SNUM
+**     EXPR が TERM を，TERM が FACTOR を呼ぶので，* と / が先に計算される．
+**     第 4 段階のかっこは FACTOR に「'(' なら EXPR を呼ぶ」を足すだけで済む．
+**   - 途中の結果は 32 ビット符号付き．ただし muls.w と divs.w は 16 ビットの数しか
+**     扱えないので，次のときは「Error: overflow」にする（CALC の戻り値 3）．
+**       *     : 2 つの数のどちらかが 16 ビット（-32768〜32767）に収まらない
+**       /     : 割る数が 16 ビットに収まらない，または divs.w の後に V フラグが立った
+**               （商が 16 ビットに収まらない．-32768 / -1 もここで引っかかる）
+**       + -   : add.l / sub.l の後に V フラグが立った（32 ビットを超えた）
+**     → 200*200*2 は，途中の 40000 が 16 ビットに収まらないので overflow になる．
+**   - EXPR / TERM / FACTOR の戻り値 %D0 は CALC とそろえる．
+**       1 成功 / 0 0 で割った / 2 書き方がおかしい（syntax）/ 3 オーバーフロー
+**     エラーが出たら，その先は読まずに %D0 をそのまま呼び出し元へ返す．
 **
-** 【全体の流れ】
+** 【このあと足す予定】 かっこ・BackSpace
+**
+** 【全体の流れ】（第 3 段階）
 **   MAIN_LOOP:
 **     (1) プロンプト "> " を表示する                       … PUTS
 **     (2) 1 行読む（打った文字を表示しながら LINE_BUF に）  … READ_LINE
-**     (3) 1 つ目の数を読む                                 … PARSE_SNUM（第 2 段階で PARSE_NUM から変更）
-**     (4) 演算子を 1 文字読む（+ - * / 以外はエラー）
-**     (5) 2 つ目の数を読む                                 … PARSE_SNUM（第 2 段階で PARSE_NUM から変更）
-**     (6) 行の終わり（0）まで来ているか確かめる（余計な文字があればエラー）
-**     (7) 計算する                                         … CALC
-**     (8) "= " と結果を表示して改行する                    … PUTS, PRINT_NUM
-**     (9) MAIN_LOOP に戻る
+**     (3) LINE_BUF の先頭から式を 1 つ読んで計算する       … EXPR
+**     (4) %D0 が 1 でなければ，番号に合ったエラーメッセージを表示して MAIN_LOOP へ
+**           0 → MSG_ERR_DIV0 / 2 → MSG_ERR_SYNTAX / 3 → MSG_ERR_OVERFLOW
+**     (5) 行の終わり（0）まで来ているか確かめる（"3 4" や "1+2)" のように
+**         余計な文字が残っていれば syntax エラー）
+**     (6) "= " と結果を表示して改行する                    … PUTS, PRINT_NUM
+**     (7) MAIN_LOOP に戻る
+**   （第 1・2 段階の「数を読む → 演算子を読む → 数を読む → CALC」は EXPR の中に移る）
 **
 ** 【レジスタの決まり】
 **   - 引数と戻り値は各ルーチンの先頭に書いたレジスタで渡す．
@@ -53,36 +80,25 @@ MAIN:
 	move.w	#0x0000, %SR            | USER MODE, LEVEL 0
 	lea.l	USR_STK_TOP,%SP         | user stack の設定
 MAIN_LOOP:
-	** TODO: 上の「全体の流れ」(1)〜(8) を書く
-	**   エラーのときは該当するメッセージ（MSG_ERR_*）を PUTS で表示して
-	**   MAIN_LOOP に戻る．
 	lea.l	MSG_PROMPT, %a0 		| (1)
 	jsr 	PUTS
 	jsr 	READ_LINE
 	lea.l 	LINE_BUF, %a0			| (2)
-	jsr 	PARSE_SNUM				| (3)
-	tst.l 	%d0
-	beq 	SYNTAX_ERR
-	move.l 	%d1, %d4				| 2回目のPARSE_NUMでd1が上書きされるため
-	move.b 	(%a0)+, %d3				| (4) CALCの第３引数
-	jsr 	PARSE_SNUM				| (5)
-	tst.l 	%d0
-	beq 	SYNTAX_ERR
-	move.l 	%d1, %d2				| CALCの第2引数
-	move.l 	%d4, %d1				| CALCの第1引数
-	cmpi.b 	#0, (%a0) 			| (6)
-	bne 	SYNTAX_ERR
-	jsr 	CALC					| (7)
-	cmpi.l 	#0, %d0
+	jsr 	EXPR					| (3)
+	cmpi.l 	#0, %d0					| (4)
 	beq 	DIV0_ERR
 	cmpi.l 	#2, %d0
 	beq 	SYNTAX_ERR
-	lea.l 	MSG_EQUAL, %a0			| (8)
+	cmpi.l 	#3, %d0
+	beq 	OVERFLOW_ERR
+	cmpi.b 	#0, (%a0)				| (5)
+	bne 	SYNTAX_ERR
+	lea.l 	MSG_EQUAL, %a0			| (6)
 	jsr 	PUTS
 	jsr 	PRINT_NUM
 	lea.l  	MSG_CRLF, %a0
 	jsr 	PUTS				
-	bra		MAIN_LOOP				| (9)
+	bra		MAIN_LOOP				| (7)
 SYNTAX_ERR:
 	lea.l 	MSG_ERR_SYNTAX, %a0
 	jsr 	PUTS
@@ -91,7 +107,10 @@ DIV0_ERR:
 	lea.l 	MSG_ERR_DIV0, %a0
 	jsr 	PUTS
 	bra 	MAIN_LOOP
-
+OVERFLOW_ERR:
+	lea.l 	MSG_ERR_OVERFLOW, %a0
+	jsr		PUTS
+	bra 	MAIN_LOOP
 ***************************************************************
 ** GETCHAR : 1 文字受け取るまで待つ
 **   【入力】なし
@@ -257,15 +276,130 @@ PARSE_SNUM_END:
 	rts
 
 ***************************************************************
+** EXPR : 足し算・引き算の並び（TERM { (+ か -) TERM }）を読んで計算する
+**   【入力】%A0 = 読み始める位置
+**   【戻り値】%D0.L = 1 成功 / 0 0 で割った / 2 syntax / 3 オーバーフロー
+**             %D1.L = 計算結果（成功のとき）
+**             %A0   = 読み終わった位置（式の次の文字）を指すように進める
+**   【ヒント】
+**     - まず TERM を呼ぶ．%D0 が 1 でなければそのまま返す．
+**       成功したら %D1 を「左の値」として別のレジスタに取っておく．
+**     - ループ: (%A0) が '+' か '-' なら
+**         演算子を覚えて %A0 を 1 つ進める → TERM を呼ぶ（失敗ならそのまま返す）
+**         → CALC で「左の値 演算子 TERM の値」を計算する（失敗ならそのまま返す）
+**         → 結果を新しい「左の値」にしてループの先頭へ．
+**       '+' でも '-' でもなければループを抜け，「左の値」を %D1 に入れて成功を返す．
+**       （その文字が正しいかどうかは呼び出し元が調べる．ここでは読まない）
+**     - 「左の値」と「演算子」はルーチンの中のレジスタに置き，movem.l で退避・復元する．
+**       TERM や CALC を呼ぶと %D0〜%D3 は書き換わるので，それ以外のレジスタを使うとよい．
+**       第 4 段階では EXPR が（FACTOR を通して）自分自身を呼ぶので，ここを守ること．
+***************************************************************
+EXPR:
+	movem.l %d2-%d4, -(%sp)
+	jsr 	TERM
+	cmpi.l 	#1, %d0
+	bne 	EXPR_END
+EXPR_LOOP1:
+	cmpi.b 	#'+', (%a0)
+	beq 	EXPRLOOP2
+	cmpi.b 	#'-', (%a0)
+	beq 	EXPRLOOP2
+	bra 	EXPR_END
+EXPRLOOP2:
+	move.l 	%d1, %d4 		| 上書き対策
+	move.b 	(%a0)+, %d3
+	jsr 	TERM
+	cmpi.l 	#1, %d0
+	bne 	EXPR_END
+	move.l 	%d1, %d2
+	move.l 	%d4, %d1
+	jsr CALC
+	cmpi.l 	#1, %d0
+	bne 	EXPR_END
+	bra 	EXPR_LOOP1
+EXPR_END:
+	movem.l (%sp)+, %d2-%d4
+	rts
+
+***************************************************************
+** TERM : 掛け算・割り算の並び（FACTOR { (* か /) FACTOR }）を読んで計算する
+**   【入力】%A0 = 読み始める位置
+**   【戻り値】%D0.L = 1 成功 / 0 0 で割った / 2 syntax / 3 オーバーフロー
+**             %D1.L = 計算結果（成功のとき）
+**             %A0   = 読み終わった位置を指すように進める
+**   【ヒント】
+**     - EXPR と同じ形．TERM → FACTOR，'+' '-' → '*' '/' に読み替えればよい．
+**     - "2*-3" の '-' は FACTOR（PARSE_SNUM）が符号として読むので，
+**       TERM は '*' の直後をそのまま FACTOR に任せればよい．
+***************************************************************
+TERM:
+	movem.l %d2-%d4, -(%sp)
+	jsr 	FACTOR
+	cmpi.l 	#1, %d0
+	bne 	TERM_END
+TERM_LOOP1:
+	cmpi.b 	#'*', (%a0)
+	beq 	TERMLOOP2
+	cmpi.b 	#'/', (%a0)
+	beq 	TERMLOOP2
+	bra 	TERM_END
+TERMLOOP2:
+	move.l 	%d1, %d4 		| 上書き対策
+	move.b 	(%a0)+, %d3
+	jsr 	FACTOR
+	cmpi.l 	#1, %d0
+	bne 	TERM_END
+	move.l 	%d1, %d2
+	move.l 	%d4, %d1
+	jsr CALC
+	cmpi.l 	#1, %d0
+	bne 	TERM_END
+	bra 	TERM_LOOP1
+TERM_END:
+	movem.l (%sp)+, %d2-%d4
+	rts
+
+***************************************************************
+** FACTOR : 1 つの数を読む（第 4 段階でかっこを足す場所）
+**   【入力】%A0 = 読み始める位置
+**   【戻り値】%D0.L = 1 成功 / 2 syntax
+**             %D1.L = 読んだ数値（成功のとき）
+**             %A0   = 読み終わった位置を指すように進める
+**   【ヒント】
+**     - PARSE_SNUM を呼ぶだけ．ただし PARSE_SNUM は失敗すると %D0 = 0 を返すので，
+**       EXPR / TERM の決まり（0 は「0 で割った」）に合わせて 2 に読み替える．
+***************************************************************
+FACTOR:
+	jsr 	PARSE_SNUM
+	cmpi	#1, %d0
+	beq 	FACTOR_END
+	moveq 	#2, %d0
+FACTOR_END:
+	rts
+
+***************************************************************
 ** CALC : 四則演算をする
 **   【入力】%D1.L = 1 つ目の数，%D2.L = 2 つ目の数，%D3.B = 演算子の文字
 **   【戻り値】%D0.L = 1 成功 / 0 失敗（0 で割ろうとした）/ 2 演算子が違う（Mainloopで使用）
+**                     / 3 オーバーフロー（第 3 段階で追加）
 **             %D1.L = 計算結果（32 ビット符号付き）
 **   【ヒント】
 **     - '*' は muls.w，'/' は divs.w を使う．
 **     - divs.w の結果は下位 16 ビットが商，上位 16 ビットが余り．
 **       商だけ使うときは ext.l で 32 ビットに広げる．
 **     - 割る数が 0 だと例外が起きるので，divs.w の前に必ず調べる．
+**   【第 3 段階で足すこと: オーバーフローを調べて %D0 = 3 を返す】
+**     - 32 ビットの数 x が 16 ビットに収まるかの調べ方:
+**         下位 16 ビットだけ別のレジスタにコピーして ext.l で 32 ビットに広げ，
+**         元の x と cmp.l で比べる．同じなら収まっている．
+**     - '*' : muls.w の前に，%D1 と %D2 の両方が 16 ビットに収まるか調べる．
+**             （両方収まっていれば，muls.w の結果は必ず 32 ビットに収まる）
+**     - '/' : divs.w の前に，%D2 が 16 ビットに収まるか調べる（%D1 は 32 ビットのままでよい）．
+**             divs.w の直後に bvs で V フラグを調べる．V が立ったときは
+**             %D1 は書き換わっていない（商が 16 ビットに収まらなかった）．
+**     - '+' '-' : add.l / sub.l の直後に bvs で V フラグを調べる．
+**     - 0 で割る検査と overflow の検査の順番は，0 で割る検査を先にする
+**       （0 は 16 ビットに収まるので，どちらが先でも結果は同じだが，読みやすさのため）．
 ***************************************************************
 CALC:
 	cmpi.b 	#'+', %d3
@@ -367,6 +501,8 @@ MSG_ERR_SYNTAX:
 	.ascii	"Error: syntax\r\n\0"
 MSG_ERR_DIV0:
 	.ascii	"Error: divide by zero\r\n\0"
+MSG_ERR_OVERFLOW:
+	.ascii	"Error: overflow\r\n\0"
 	.even
 
 ****************************************************************
