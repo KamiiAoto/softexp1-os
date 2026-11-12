@@ -60,7 +60,7 @@ MAIN_LOOP:
 	jsr 	PUTS
 	jsr 	READ_LINE
 	lea.l 	LINE_BUF, %a0			| (2)
-	jsr 	PARSE_SNUM				| (3)
+	jsr 	PARSE_NUM				| (3)
 	tst.l 	%d0
 	beq 	SYNTAX_ERR
 	move.l 	%d1, %d4				| 2回目のPARSE_NUMでd1が上書きされるため
@@ -79,7 +79,7 @@ MAIN_LOOP:
 	beq 	SYNTAX_ERR
 	lea.l 	MSG_EQUAL, %a0			| (8)
 	jsr 	PUTS
-	jsr 	PRINT_SNUM
+	jsr 	PRINT_NUM
 	lea.l  	MSG_CRLF, %a0
 	jsr 	PUTS				
 	bra		MAIN_LOOP				| (9)
@@ -242,10 +242,10 @@ PARSE_NUM_FAIL:
 ***************************************************************
 PARSE_SNUM:
 	movem.l %d2, -(%sp)
+	moveq 	#0, %d2
 	cmp.b 	#'-', (%a0)
 	bne		PARSE_SNUM_LOOP
 	addq	#1, %a0
-	moveq 	#0, %d2
 	moveq 	#1, %d2
 PARSE_SNUM_LOOP:
 	jsr 	PARSE_NUM
