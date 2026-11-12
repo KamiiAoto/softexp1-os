@@ -6,7 +6,7 @@
 ***************************************************************
 	.include "os_defs.s"
 	.include "os_init.s"
-	.include "user_ko-matsuoka.s"
+	.include "user_ko-matsuoka2.s"
 	.include "os_interface.s"
 	.include "os_queue.s"
 	.include "os_uart.s"
