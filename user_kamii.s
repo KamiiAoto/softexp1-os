@@ -370,11 +370,25 @@ TERM_END:
 **       EXPR / TERM の決まり（0 は「0 で割った」）に合わせて 2 に読み替える．
 ***************************************************************
 FACTOR:
+	cmpi.b 	#'(', (%a0)
+	bne		FACTOR_LOOP
+	addq 	#1, %a0
+	jsr 	EXPR
+	cmpi.l  #1, %d0
+	bne 	FACTOR_END
+	cmpi.b 	#')', (%a0)
+	bne 	FACTOR_SYNTAX
+	addq 	#1, %a0
+	bra 	FACTOR_END
+FACTOR_LOOP:
 	jsr 	PARSE_SNUM
 	cmpi	#1, %d0
 	beq 	FACTOR_END
-	moveq 	#2, %d0
+	bra 	FACTOR_SYNTAX
 FACTOR_END:
+	rts
+FACTOR_SYNTAX:
+	moveq 	#2, %d0
 	rts
 
 ***************************************************************
