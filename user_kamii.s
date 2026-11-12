@@ -380,7 +380,7 @@ FACTOR_END:
 ***************************************************************
 ** CALC : 四則演算をする
 **   【入力】%D1.L = 1 つ目の数，%D2.L = 2 つ目の数，%D3.B = 演算子の文字
-**   【戻り値】%D0.L = 1 成功 / 0 失敗（0 で割ろうとした）/ 2 演算子が違う（Mainloopで使用）
+**   【戻り値】%D0.L = 1 成功 / 0 失敗（0 で割ろうとした）/ 2 演算子が違う
 **                     / 3 オーバーフロー（第 3 段階で追加）
 **             %D1.L = 計算結果（32 ビット符号付き）
 **   【ヒント】
@@ -394,7 +394,7 @@ FACTOR_END:
 **         元の x と cmp.l で比べる．同じなら収まっている．
 **     - '*' : muls.w の前に，%D1 と %D2 の両方が 16 ビットに収まるか調べる．
 **             （両方収まっていれば，muls.w の結果は必ず 32 ビットに収まる）
-**     - '/' : divs.w の前に，%D2 が 16 ビットに収まるか調べる（%D1 は 32 ビットのままでよい）．
+**     - '/' : divs.w の前に，%D2 が 16 ビットに収まるか調べる（%D1 は 32 ビットのままでよい <-why?）．
 **             divs.w の直後に bvs で V フラグを調べる．V が立ったときは
 **             %D1 は書き換わっていない（商が 16 ビットに収まらなかった）．
 **     - '+' '-' : add.l / sub.l の直後に bvs で V フラグを調べる．
@@ -413,17 +413,32 @@ CALC:
 	bra 	CALC_FAIL
 CALC_ADD:
 	add.l 	%d2, %d1
+	bvs 	CALC_OVERFLOW
 	bra 	CALC_END
 CALC_SUB:
 	sub.l 	%d2, %d1
+	bvs 	CALC_OVERFLOW
 	bra 	CALC_END
 CALC_MUL:
+	move.w 	%d1, %d0
+	ext.l 	%d0
+	cmp.l 	%d0, %d1
+	bne 	CALC_OVERFLOW
+	move.w 	%d2, %d0
+	ext.l 	%d0
+	cmp.l 	%d0, %d2
+	bne 	CALC_OVERFLOW
 	muls.w 	%d2, %d1
 	bra 	CALC_END
 CALC_DIV:
 	cmp.l 	#0, %d2
 	beq 	CALC_DIV0
+	move.w 	%d2, %d0
+	ext.l 	%d0
+	cmp.l 	%d0, %d2
+	bne 	CALC_OVERFLOW
 	divs.w 	%d2, %d1
+	bvs 	CALC_OVERFLOW
 	ext.l 	%d1			| 上位のあまりを消す
 	bra 	CALC_END
 CALC_FAIL:
@@ -431,6 +446,9 @@ CALC_FAIL:
 	rts
 CALC_DIV0:
 	move.l 	#0, %d0
+	rts
+CALC_OVERFLOW:
+	move.l 	#3, %d0
 	rts
 CALC_END:
 	move.l 	#1, %d0
