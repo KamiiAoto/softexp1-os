@@ -60,7 +60,7 @@ MAIN_LOOP:
 	jsr 	PUTS
 	jsr 	READ_LINE
 	lea.l 	LINE_BUF, %a0			| (2)
-	jsr 	PARSE_NUM				| (3)
+	jsr 	PARSE_SNUM				| (3)
 	tst.l 	%d0
 	beq 	SYNTAX_ERR
 	move.l 	%d1, %d4				| 2回目のPARSE_NUMでd1が上書きされるため
