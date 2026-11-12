@@ -3,6 +3,10 @@
 **
 ** 1sごとにTTを呼び出し、TIMEを1s進めて表示
 **　23:59:59の次は00:00:00
+**
+** 精度補正t=10012に変更(40sで約3s進んだため)
+** LEDに時間表示
+** 時刻を記入してから進める
 ***************************************************************
 
 ****************************************************************
@@ -19,7 +23,35 @@ MAIN:
 	move.l	#SYSCALL_NUM_RESET_TIMER,%D0
 	trap	#0
 
-	** 最初に00:00:00の表示
+
+	**1文字ずつ6回読んで順に入れる
+	move.l #SYSCALL_NUM_PUTSTRING, %D0
+	move.l #0, %D1
+	move.l #PMSG, %D2
+	move.l #19, %D3
+	trap #0
+
+	jsr GETKEY
+	move.b KEY,TIME+1
+	jsr GETKEY
+	move.b KEY,TIME+2
+	jsr GETKEY
+	move.b KEY,TIME+4
+	jsr GETKEY
+	move.b KEY,TIME+5
+	jsr GETKEY
+	move.b KEY,TIME+7
+	jsr GETKEY
+	move.b KEY,TIME+8
+
+	move.l #SYSCALL_NUM_PUTSTRING, %D0
+	move.l #0, %D1
+	move.l #NL, %D2
+	move.l #2, %D3
+	trap #0
+	
+
+	** 設定した時刻の表示
 	move.l #SYSCALL_NUM_PUTSTRING, %D0
 	move.l #0, %D1
 	move.l #TIME, %D2
@@ -28,13 +60,35 @@ MAIN:
 	
 	** システムコールによる SET_TIMER の起動
 	move.l	#SYSCALL_NUM_SET_TIMER, %D0
-	move.w	#10000, %D1
+	move.w	#10012, %D1       |修正点
 	move.l	#TT, %D2
 	trap	#0
 
 LOOP:
 	bra LOOP
 
+
+
+******************************
+* GETKEY: キーを1文字読んでKEYに入れ、画面にも表示する
+******************************
+GETKEY:
+	move.l #SYSCALL_NUM_GETSTRING, %D0
+	move.l #0, %D1
+	move.l #KEY, %D2
+	move.l #1, %D3
+	trap #0
+	cmpi.l #0, %D0
+	beq GETKEY
+
+	move.l #SYSCALL_NUM_PUTSTRING, %D0
+	move.l #0, %D1
+	move.l #KEY, %D2
+	move.l #1, %D3
+	trap #0
+	rts
+
+	
 ******************************
 * TT:1sごとに呼ばれる
 * secondsの1の位から進め、繰り上がりを行う
@@ -81,7 +135,18 @@ CHK24:
 	move.b #'0', TIME+1
 	move.b #'0', TIME+2
 
-PRINT:	
+PRINT:
+	** LEDに表示
+	move.b TIME+1, LED7
+	move.b TIME+2, LED6
+	move.b TIME+3, LED5
+	move.b TIME+4, LED4
+	move.b TIME+5, LED3
+	move.b TIME+6, LED2
+	move.b TIME+7, LED1
+	move.b TIME+8, LED0
+	
+	** 画面に表示
 	move.l #SYSCALL_NUM_PUTSTRING, %D0
 	move.l #0, %D1
 	move.l #TIME, %D2
@@ -97,7 +162,17 @@ PRINT:
 .section .data
 TIME:
 	.ascii	"\r00:00:00"             | \r: 行頭へ (キャリッジリターン)
-	.even                           | \n: 次の行へ (ラインフィード)
+
+PMSG:
+	.ascii "set time (hhmmss): "
+
+NL:
+	.ascii "\r\n"
+
+KEY:
+	.dc.b 0
+	
+	.even
 
 ****************************************************************
 *** 初期値の無いデータ領域
