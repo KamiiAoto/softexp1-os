@@ -111,7 +111,7 @@ SYS_STK_TOP:                | システムスタック領域の最後尾
 .even
 boot:
 	* スーパーバイザ & 各種設定を行っている最中の割込禁止
-	move.w	#0x2700,%SR
+	move.w	#0x2700,%SR	| [レビュー: 松岡] S=1 (スーパーバイザ)，割り込みレベル 7 で全割り込みを禁止
 	lea.l	SYS_STK_TOP,%SP         | Set SSP
 
 	****************
@@ -119,6 +119,7 @@ boot:
 	** 表 B.4 (p.72) を見て，使う例外のベクタに処理ルーチンの
 	** 先頭アドレスを書き込む (B.2.4 の move.l #..., 0x110)．
 	****************
+	| [レビュー: 松岡] IVR=0x40 なのでレベル n の割り込みはベクタ番号 0x40+n，そのアドレスは番号×4
 	move.l	#UART1_INTERRUPT, 0x110 	| レベル 4 (UART1), (64+4)*4
 	move.l	#SYSCALL_IF, 0x080			| TRAP #0, (32+0)*4
 	move.l	#TIMER1_INTERRUPT, 0x118	| レベル 6 (タイマ1), (64+6)*4
@@ -149,16 +150,16 @@ boot:
 	** キューの初期化
 	** os_queue.s の QUEUE_INIT を呼ぶ．
 	****************
-	jsr	QUEUE_INIT
+	jsr	QUEUE_INIT	| [レビュー: 松岡] 割り込みを許可する前にキューを初期化しておく
 
 	****************
 	** 割り込みの許可
 	** IMR で使う割り込みを許可し，走行レベルを下げる
 	**       (3.6 節 p.31 の 4 つの準備，B.3.4 の推奨値)．
 	****************
-	move.w	#0xe108, USTCNT1
-	move.l	#0xff3ff9, IMR
-	move.w	#0x2000, %SR
+	move.w	#0xe108, USTCNT1	| [レビュー: 松岡] 受信割り込みだけ許可．送信割り込みは PUTSTRING が必要なときに許可する
+	move.l	#0xff3ff9, IMR	| [レビュー: 松岡] bit1 (タイマ1) と bit2 (UART1) を 0 にしてマスクを解除
+	move.w	#0x2000, %SR	| [レビュー: 松岡] スーパーバイザのまま走行レベルを 0 に下げ，割り込みを受け付ける
 
 	bra	MAIN                    | ユーザプログラム / テストプログラムへ
 
@@ -280,14 +281,14 @@ USR_STK_TOP:                            | ユーザスタック領域の最後�
 UART1_INTERRUPT:
 
     * D0~D3の元の値を保存 (複数レジスタは movem でまとめて積む)
-    movem.l %D0-%D3, -(%SP)
+    movem.l %D0-%D3, -(%SP)	| [レビュー: 松岡] 割り込みはどこで起きるか分からないので，使うレジスタは必ず退避する
 
     ******** 送信 (Step 4) ********
     * UTX1の内容を取得
     move.w UTX1, %D0
 
     * bit15だけを取り出す
-    andi.w #0x8000, %D0
+    andi.w #0x8000, %D0	| [レビュー: 松岡] UTX1 の bit15 (FIFO EMPTY) が 1 なら送信できる
 
     * bit15が0なら送信処理を行わない
     beq NOT_SEND
@@ -305,7 +306,7 @@ NOT_SEND:
     move.w URX1, %D3
 
     * bit13 (DATA READY) を調べる (btst は D3 を壊さない)
-    btst #13, %D3
+    btst #13, %D3	| [レビュー: 松岡] URX1 の bit13 (DATA READY) が 1 なら受信データがある
 
     * bit13が0なら受信処理を行わない
     beq NOT_RECEIVE
@@ -334,7 +335,7 @@ TIMER1_INTERRUPT:
 	move.w	TSTAT1, %d0             | (2) TSTAT1 をワードで読む (0 クリア前の読み出しも兼ねる)
 	btst	#0, %d0                 |     bit0 = コンペアイベント発生
 	beq		TIMER1_EXIT             |     0 ならタイマ割り込みではないので何もしない
-	move.w	#0, TSTAT1              |     TSTAT1 を 0 クリア
+	move.w	#0, TSTAT1              |     TSTAT1 を 0 クリア	| [レビュー: 松岡] クリアしないと割り込みが出続ける
 	jsr	CALL_RP                 	|     task_p の指すルーチンを呼ぶ
 TIMER1_EXIT:
 	movem.l	(%sp)+,%d0-%d7/%a0-%a6  | (3) レジスタ復帰
@@ -358,10 +359,10 @@ SYSCALL_IF:
 	lea.l	SYSCALL_TABLE, %a0      | %A0 = テーブルの先頭
 	lsl.l 	#2, %d0                 | 番号 × 4 = テーブル内のオフセット (1 要素 4 バイト)
 	movea.l	(%a0, %d0.l), %a0       | %A0 = 呼び出すルーチンの先頭アドレス
-	jsr		(%a0)                   | 各ルーチンへ (戻り値は %D0 に入る)
+	jsr		(%a0)                   | 各ルーチンへ (戻り値は %D0 に入る)	| [レビュー: 松岡] 表引きなので，システムコールを増やすときは表に 1 行足して上限を変えるだけ
 SYSCALL_IF_EXIT:
 	movem.l	(%sp)+,%a0              | %A0 を復帰 (%D0 は復帰しない)
-	rte
+	rte							| [レビュー: 松岡] trap で積まれた SR と PC を戻すので rts ではなく rte
 
 ***************************************************************
 ** SYSCALL_TABLE : システムコール番号 → ルーチンの先頭アドレスの対応表
@@ -407,7 +408,7 @@ QUEUE_INIT:
 
     * キュー0 (受信用) の初期化
     lea.l   BF0_START, %a2
-    lea.l   BF0_END, %a3
+    lea.l   BF0_END, %a3	| [レビュー: 田邉] bottom はデータ領域の最後の 1 バイトのアドレス (BF0_START+255)
     move.l  %a2, top0
     move.l  %a3, bottom0        | bottom には末尾アドレスを入れる
     move.l  %a2, out0
@@ -439,13 +440,13 @@ INQ:
 	lea.l Q0_INFO,%a0
 	cmpi.l #0,%d0
 	beq INQ_CHECK_FULL
-	lea.l Q1_INFO,%a0
+	lea.l Q1_INFO,%a0	| [レビュー: 田邉] 制御変数を Q0_INFO / Q1_INFO にまとめたので，%a0 からのオフセットで 2 本を同じコードで扱える
 INQ_CHECK_FULL:	 /*(3) s== 256 でqueue full*/
 	cmpi.l  #256, S(%a0)
 	beq     INQ_FULL
 	movea.l IN(%a0),%a1 /*(4)m[in] = data*/
 	move.b %d1, (%a1)
-	cmpa.l BOTTOM(%a0), %a1 /*(5)*/
+	cmpa.l BOTTOM(%a0), %a1 /*(5)*/	| [レビュー: 田邉] in が末尾なら先頭に戻す (リングバッファ)
 	beq INQ_WRAP
 	adda.l #1,%a1
 	bra INQ_UPDATE
@@ -465,7 +466,7 @@ INQ_FULL:
 
 INQ_BACK:
 	movem.l (%sp)+, %a0-%a1
-	move.w (%sp)+,%sr
+	move.w (%sp)+,%sr		| [レビュー: 田邉] 退避した走行レベルに戻す (割り込み許可も元に戻る)
 	rts
 
 ***************************************************************
@@ -478,7 +479,7 @@ INQ_BACK:
 OUTQ:
 	move.w %SR, -(%SP)
 	movem.l %a0-%a1,-(%sp)
-	ori.w #0x2700, %SR
+	ori.w #0x2700, %SR	| [レビュー: 安森] OUTQ の途中で受信割り込みの INQ が走ると s が壊れるので割り込みを禁止
 
 	cmpi.l #0, %d0
 	beq	OUTQ_Q0
@@ -491,7 +492,7 @@ OUTQ_Q1:
 	move.l	out1, %a0
 	move.b	(%a0), %d1
 
-	cmp.l	bottom1, %a0
+	cmp.l	bottom1, %a0	| [レビュー: 安森] out が末尾なら先頭に戻す (リングバッファ)
 	bne	OUTQ_PLS_OUT1
 	move.l	top1, %a0
 	bra	OUTQ_UPDATTE_OUT1
@@ -516,7 +517,7 @@ OUTQ_Q0:
 	move.l	out0, %a0
 	move.b	(%a0), %d1
 
-	cmp.l	bottom0, %a0
+	cmp.l	bottom0, %a0	| [レビュー: 安森] out が末尾なら先頭に戻す (リングバッファ)
 	bne	OUTQ_PLS_OUT0
 	move.l	top0, %a0
 	bra	OUTQ_UPDATTE_OUT0
@@ -601,20 +602,20 @@ INTERPUT:
     cmpi.l #0, %d1
 	bne	INTERPUT_BACK
 
-    move.l #1, %d0
+    move.l #1, %d0	| [レビュー: 安森] 送信キュー (1 番) から 1 文字取り出す
     jsr OUTQ /* 成功不成功はd0へ */
     
     cmpi.l #0, %d0
     beq INTERPUT_MASK
 
     andi.l #0x000000FF, %d1 /* 下位8bit以外クリア */
-    ori.w #0x0800, %d1 /* 上位8ビット制御ビット　フロー制御は行わない */
+    ori.w #0x0800, %d1 /* 上位8ビット制御ビット　フロー制御は行わない */	| [レビュー: 安森] UTX1 の bit11 (NOCTS) を 1 にして CTS を無視して送信
     move.w %d1, UTX1
     bra INTERPUT_BACK
 
 
 INTERPUT_MASK:
-    andi.w #0xfffb, USTCNT1 /* bit2 (送信割り込み許可) のみ0にし他は影響しない */
+    andi.w #0xfffb, USTCNT1 /* bit2 (送信割り込み許可) のみ0にし他は影響しない */	| [レビュー: 安森] 送るものがないのに許可したままだと送信割り込みが出続ける
     bra INTERPUT_BACK
     
 INTERPUT_BACK:
@@ -652,7 +653,7 @@ PUTSTRING_CHECK:
     jsr INQ
 
     cmpi.l #0, %d0
-    beq PUTSTRING_ENABLE
+    beq PUTSTRING_ENABLE	| [レビュー: 安森] キューが満杯ならそこで打ち切り，入れられた数を返す
 
     addq.l #1, %d4
     addq.l #1, %a0
@@ -660,7 +661,7 @@ PUTSTRING_CHECK:
     bra PUTSTRING_CHECK
 
 PUTSTRING_ENABLE:
-    ori.w #0x0004, USTCNT1 /* USTCNT1のbitを1に */
+    ori.w #0x0004, USTCNT1 /* USTCNT1のbitを1に */	| [レビュー: 安森] 送信割り込みを許可すると，INTERPUT がキューの中身を 1 文字ずつ送る
 
 PUTSTRING_FINISH:
     move.l %d4, %d0
@@ -689,7 +690,7 @@ INTERGET:
    /*(2) INQ(0, data) により，受信キュー(0番)に data を格納する*/
     moveq.l #0, %d0                     /*キュー番号 no = 0 → %D0.L*/
     move.b  %d2, %d1                    /*受信データ data → %D1.B (レジスタのずれ調整)*/
-    jsr     INQ                         /*INQ の復帰値は無視してよい*/
+    jsr     INQ                         /*INQ の復帰値は無視してよい*/	| [レビュー: 田邉] キューが満杯なら受信した文字は捨てられる
 
 INTERGET_EXIT:
     movem.l (%sp)+, %d0-%d1             /*退避したレジスタの復元*/
@@ -719,14 +720,14 @@ GETSTRING_LOOP:
 
     /*(4) OUTQ(0, data) により受信キュー(0番)から 8bit データ data を取り出す*/
     moveq.l #0, %d0                     /*キュー番号 no = 0 → %D0.L*/
-    jsr     OUTQ                        /*戻り値: %D0.L = 0 or 1, %D1.B = data*/
+    jsr     OUTQ                        /*戻り値: %D0.L = 0 or 1, %D1.B = data*/	| [レビュー: 田邉] 受信キューが空なら待たずに終了する (GETSTRING は入力を待たない)
 
     /*(5) OUTQ の復帰値 (%D0) が 0 ならば (9) へ*/
     cmpi.l  #0, %d0
     beq     GETSTRING_DONE
 
     /*(6) アドレス i で始まる領域に data をコピー ＆ (7) sz++, i++*/
-    move.b  %d1, (%a0)+                 /*:m[i] = data, i++*/
+    move.b  %d1, (%a0)+                 /*:m[i] = data, i++*/	| [レビュー: 田邉] ポストインクリメントで i++ も同時に行う
     addq.l  #1, %d4                     /*sz++*/
 
     /*(8) (3) へ戻る*/
@@ -760,7 +761,7 @@ GETSTRING_EXIT:
 **   【処理内容】TCTL1 を設定 (restart, 割り込み不可, SYSCLK/16, タイマ停止)
 ***************************************************************
 RESET_TIMER:
-	move.w #0x004, TCTL1 /*p80より00100(2進数)*/
+	move.w #0x004, TCTL1 /*p80より00100(2進数)*/	| [レビュー: 神井・副田] bit0 (TEN)=0 でタイマ停止，bit4 (IRQEN)=0 で割り込み不可，bit3-1=010 で SYSCLK/16
 	rts
 
 ***************************************************************
@@ -771,9 +772,9 @@ RESET_TIMER:
 ***************************************************************
 SET_TIMER:
 	move.l %D2, task_p /*処理(1)*/
-	move.w #206, TPRER1 /*処理(2)*/
-	move.w %D1, TCMP1 /*処理(3)*/
-	move.w #0x0015, TCTL1 /*p80より10101(2進数)*/
+	move.w #206, TPRER1 /*処理(2)*/	| [レビュー: 神井・副田] SYSCLK/16 をさらに (206+1) で割り，1 カウント ≒ 0.1 ms にする
+	move.w %D1, TCMP1 /*処理(3)*/	| [レビュー: 神井・副田] カウンタが t に達すると割り込み → t × 0.1 ms ごとに task_p を呼ぶ
+	move.w #0x0015, TCTL1 /*p80より10101(2進数)*/	| [レビュー: 神井・副田] TEN=1, IRQEN=1 でタイマ開始・割り込み許可
 	rts
 
 ***************************************************************
@@ -784,7 +785,7 @@ SET_TIMER:
 CALL_RP:
 	movem.l %A0, -(%SP)
 	movea.l task_p, %A0 /*task_pの中身をA0にコピー*/
-	jsr (%A0) /*処理(1)*/
+	jsr (%A0) /*処理(1)*/	| [レビュー: 神井・副田] SET_TIMER で登録された番地を間接アドレスで呼ぶ
 	movem.l (%SP)+, %A0
 	rts
 
